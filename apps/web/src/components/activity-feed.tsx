@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import type { LucideIcon } from "lucide-react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -10,7 +11,6 @@ import {
   User,
   XCircle,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
 export type ActivityType =
   | "message_sent"
@@ -142,7 +142,7 @@ export function ActivityFeed({
             <p className="text-sm text-muted-foreground">No recent activity</p>
           </div>
         ) : (
-          <ScrollArea className="h-[450px] pr-4">
+          <ScrollArea className="h-[840px] xl:h-[940px] pr-4">
             <div className="space-y-3 pb-2">
               {displayedActivities.map((activity, index) => {
                 const config = activityConfig[activity.type];
@@ -157,7 +157,7 @@ export function ActivityFeed({
                         <div
                           className={cn(
                             "p-1.5 rounded-full z-10",
-                            config.bgColor,
+                            config.bgColor
                           )}
                         >
                           <Icon className={cn("h-3 w-3", config.color)} />

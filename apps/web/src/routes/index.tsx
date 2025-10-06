@@ -1,4 +1,4 @@
-import { ActivityFeed, type ActivityItem } from "@/components/activity-feed";
+import { ActivityFeed } from "@/components/activity-feed";
 import { LiveMetrics, type Metric } from "@/components/live-metrics";
 import Loader from "@/components/loader";
 import { MessageActivityChart } from "@/components/message-activity-chart";
@@ -11,6 +11,12 @@ import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import {
+  calculateMetrics,
+  generateChartData,
+  getActivities,
+  getClients,
+} from "@/domain/mocks";
 import { trpc } from "@/utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -30,318 +36,19 @@ export const Route = createFileRoute("/")({
   component: HomeComponent,
 });
 
-const mockClients = [
-  {
-    id: "1",
-    name: "Primary Business",
-    phoneNumber: "+1234567890",
-    status: "connected" as const,
-    lastConnected: new Date(Date.now() - 1000 * 60 * 5),
-    messagesSent: 1247,
-    messagesDelivered: 1198,
-    messagesFailed: 12,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
-  },
-  {
-    id: "2",
-    name: "Support Line",
-    phoneNumber: "+1234567891",
-    status: "connected" as const,
-    lastConnected: new Date(Date.now() - 1000 * 60 * 2),
-    messagesSent: 3421,
-    messagesDelivered: 3389,
-    messagesFailed: 8,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45),
-  },
-  {
-    id: "3",
-    name: "Marketing Account",
-    phoneNumber: "+1234567892",
-    status: "disconnected" as const,
-    lastConnected: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    messagesSent: 892,
-    messagesDelivered: 856,
-    messagesFailed: 24,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15),
-  },
-  {
-    id: "4",
-    name: "Sales Team",
-    phoneNumber: "+1234567893",
-    status: "connecting" as const,
-    lastConnected: null,
-    messagesSent: 0,
-    messagesDelivered: 0,
-    messagesFailed: 0,
-    createdAt: new Date(Date.now() - 1000 * 60 * 10),
-  },
-  {
-    id: "5",
-    name: "Customer Service",
-    phoneNumber: "+1234567894",
-    status: "connected" as const,
-    lastConnected: new Date(Date.now() - 1000 * 60 * 8),
-    messagesSent: 2156,
-    messagesDelivered: 2089,
-    messagesFailed: 15,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60),
-  },
-  {
-    id: "6",
-    name: "E-commerce Bot",
-    phoneNumber: "+1234567895",
-    status: "connected" as const,
-    lastConnected: new Date(Date.now() - 1000 * 60 * 1),
-    messagesSent: 5432,
-    messagesDelivered: 5398,
-    messagesFailed: 34,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 90),
-  },
-  {
-    id: "7",
-    name: "Notifications Service",
-    phoneNumber: "+1234567896",
-    status: "idle" as const,
-    lastConnected: new Date(Date.now() - 1000 * 60 * 60 * 4),
-    messagesSent: 678,
-    messagesDelivered: 665,
-    messagesFailed: 13,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 20),
-  },
-  {
-    id: "8",
-    name: "Beta Testing Account",
-    phoneNumber: "+1234567897",
-    status: "error" as const,
-    lastConnected: new Date(Date.now() - 1000 * 60 * 60 * 1),
-    messagesSent: 45,
-    messagesDelivered: 38,
-    messagesFailed: 7,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5),
-  },
-  {
-    id: "9",
-    name: "VIP Customer Line",
-    phoneNumber: "+1234567898",
-    status: "connected" as const,
-    lastConnected: new Date(Date.now() - 1000 * 60 * 12),
-    messagesSent: 987,
-    messagesDelivered: 978,
-    messagesFailed: 9,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 40),
-  },
-  {
-    id: "10",
-    name: "Backup Instance",
-    phoneNumber: "+1234567899",
-    status: "disconnected" as const,
-    lastConnected: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3),
-    messagesSent: 234,
-    messagesDelivered: 228,
-    messagesFailed: 6,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 100),
-  },
-];
-
-const mockActivities: ActivityItem[] = [
-  {
-    id: "1",
-    type: "message_delivered",
-    title: "Message delivered successfully",
-    description: "Welcome message sent to new customer",
-    timestamp: new Date(Date.now() - 1000 * 60 * 2),
-    metadata: {
-      clientName: "Primary Business",
-      phoneNumber: "+1234567890",
-    },
-  },
-  {
-    id: "2",
-    type: "message_sent",
-    title: "Order confirmation sent",
-    description: "Automated order #12345 confirmation message",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    metadata: {
-      clientName: "E-commerce Bot",
-      phoneNumber: "+1555123456",
-    },
-  },
-  {
-    id: "3",
-    type: "client_connected",
-    title: "Client connected",
-    description: "E-commerce Bot is now online",
-    timestamp: new Date(Date.now() - 1000 * 60 * 8),
-    metadata: {
-      clientName: "E-commerce Bot",
-    },
-  },
-  {
-    id: "4",
-    type: "message_delivered",
-    title: "Support ticket response delivered",
-    description: "Response to ticket #789 sent successfully",
-    timestamp: new Date(Date.now() - 1000 * 60 * 12),
-    metadata: {
-      clientName: "Customer Service",
-      phoneNumber: "+1555987654",
-    },
-  },
-  {
-    id: "5",
-    type: "client_connected",
-    title: "Client reconnected",
-    description: "Support Line is back online",
-    timestamp: new Date(Date.now() - 1000 * 60 * 15),
-    metadata: {
-      clientName: "Support Line",
-    },
-  },
-  {
-    id: "6",
-    type: "message_sent",
-    title: "Bulk message campaign started",
-    description: "Sending promotional messages to 150 contacts",
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    metadata: {
-      clientName: "Marketing Account",
-    },
-  },
-  {
-    id: "7",
-    type: "message_delivered",
-    title: "VIP customer inquiry response",
-    description: "Priority message delivered to premium customer",
-    timestamp: new Date(Date.now() - 1000 * 60 * 35),
-    metadata: {
-      clientName: "VIP Customer Line",
-      phoneNumber: "+1555111222",
-    },
-  },
-  {
-    id: "8",
-    type: "message_failed",
-    title: "Message delivery failed",
-    description: "Unable to deliver message - recipient unavailable",
-    timestamp: new Date(Date.now() - 1000 * 60 * 45),
-    metadata: {
-      clientName: "Primary Business",
-      phoneNumber: "+1987654321",
-    },
-  },
-  {
-    id: "9",
-    type: "error",
-    title: "Connection error detected",
-    description: "Beta Testing Account experiencing connectivity issues",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-    metadata: {
-      clientName: "Beta Testing Account",
-    },
-  },
-  {
-    id: "10",
-    type: "message_delivered",
-    title: "Payment reminder sent",
-    description: "Automated payment reminder for invoice #4567",
-    timestamp: new Date(Date.now() - 1000 * 60 * 75),
-    metadata: {
-      clientName: "E-commerce Bot",
-      phoneNumber: "+1555333444",
-    },
-  },
-  {
-    id: "11",
-    type: "info",
-    title: "System health check completed",
-    description: "All active clients passed health verification",
-    timestamp: new Date(Date.now() - 1000 * 60 * 90),
-    metadata: {},
-  },
-  {
-    id: "12",
-    type: "client_disconnected",
-    title: "Client disconnected",
-    description: "Marketing Account went offline",
-    timestamp: new Date(Date.now() - 1000 * 60 * 120),
-    metadata: {
-      clientName: "Marketing Account",
-    },
-  },
-  {
-    id: "13",
-    type: "message_sent",
-    title: "Notification batch dispatched",
-    description: "45 notification messages queued for delivery",
-    timestamp: new Date(Date.now() - 1000 * 60 * 135),
-    metadata: {
-      clientName: "Notifications Service",
-    },
-  },
-  {
-    id: "14",
-    type: "message_delivered",
-    title: "Customer feedback request delivered",
-    description: "Post-purchase survey sent to 20 customers",
-    timestamp: new Date(Date.now() - 1000 * 60 * 150),
-    metadata: {
-      clientName: "Customer Service",
-    },
-  },
-  {
-    id: "15",
-    type: "client_connected",
-    title: "New client initialized",
-    description: "Sales Team client successfully configured",
-    timestamp: new Date(Date.now() - 1000 * 60 * 180),
-    metadata: {
-      clientName: "Sales Team",
-    },
-  },
-  {
-    id: "16",
-    type: "message_failed",
-    title: "Bulk send partially failed",
-    description: "3 out of 50 messages failed to deliver",
-    timestamp: new Date(Date.now() - 1000 * 60 * 200),
-    metadata: {
-      clientName: "Marketing Account",
-    },
-  },
-  {
-    id: "17",
-    type: "message_delivered",
-    title: "Appointment reminder sent",
-    description: "Reminder for tomorrow's appointment delivered",
-    timestamp: new Date(Date.now() - 1000 * 60 * 240),
-    metadata: {
-      clientName: "Primary Business",
-      phoneNumber: "+1555777888",
-    },
-  },
-  {
-    id: "18",
-    type: "info",
-    title: "Database backup completed",
-    description: "Message history successfully backed up",
-    timestamp: new Date(Date.now() - 1000 * 60 * 300),
-    metadata: {},
-  },
-];
-
 function HomeComponent() {
-  const connectedClients = mockClients.filter(
-    (c) => c.status === "connected",
-  ).length;
-  const totalSent = mockClients.reduce((sum, c) => sum + c.messagesSent, 0);
-  const totalDelivered = mockClients.reduce(
-    (sum, c) => sum + c.messagesDelivered,
-    0,
-  );
-  const totalFailed = mockClients.reduce((sum, c) => sum + c.messagesFailed, 0);
+  // Get mock data from centralized source
+  const mockClients = getClients();
+  const mockActivities = getActivities();
+  const metrics = calculateMetrics(mockClients);
 
-  const deliveryRate =
-    totalSent > 0 ? Math.round((totalDelivered / totalSent) * 100) : 0;
+  const {
+    connectedClients,
+    totalSent,
+    totalDelivered,
+    totalFailed,
+    deliveryRate,
+  } = metrics;
 
   const stats: Stat[] = [
     {
@@ -387,7 +94,8 @@ function HomeComponent() {
   const { data, isLoading, isError, refetch } = useQuery(
     trpc.healthCheck.queryOptions(undefined, {
       refetchInterval: 30000,
-    }),
+      retry: false,
+    })
   );
 
   if (isLoading) {
@@ -421,25 +129,6 @@ function HomeComponent() {
   if (!data) {
     return null;
   }
-
-  // Generate mock chart data for sparklines
-  const generateChartData = (
-    points: number,
-    trend: "up" | "down" | "stable",
-  ) => {
-    const data = [];
-    let baseValue = 50;
-    for (let i = 0; i < points; i++) {
-      const variance = Math.random() * 10 - 5;
-      if (trend === "up") {
-        baseValue += Math.random() * 3;
-      } else if (trend === "down") {
-        baseValue -= Math.random() * 2;
-      }
-      data.push({ value: Math.max(0, baseValue + variance) });
-    }
-    return data;
-  };
 
   // Prepare data for LiveMetrics
   const liveMetrics: Metric[] = [
