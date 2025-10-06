@@ -540,7 +540,7 @@ function HomeComponent() {
           <StatsOverview stats={stats} columns={4} />
         </section>
 
-        {/* Middle Section: Live Metrics & Activity Chart */}
+        {/* Middle Section: Live Metrics */}
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-1">
@@ -551,29 +551,33 @@ function HomeComponent() {
             </p>
           </div>
           <LiveMetrics metrics={liveMetrics} columns={4} />
-          <MessageActivityChart
-            totalSent={totalSent}
-            totalDelivered={totalDelivered}
-          />
         </section>
 
-        {/* Bottom Section: Monitoring & Activity */}
+        {/* Bottom Section: Activity & Monitoring */}
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-1">
-              System Monitoring
+              Activity & Monitoring
             </h2>
             <p className="text-sm text-muted-foreground">
-              Client status and recent activity logs
+              Message activity trends and system monitoring
             </p>
           </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <StatusMonitor
-              clients={clientStatusItems}
-              onClientClick={(client) => {
-                console.log("Client clicked:", client);
-              }}
-            />
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            {/* Left Column: Chart and Status */}
+            <div className="xl:col-span-2 space-y-4">
+              <MessageActivityChart
+                totalSent={totalSent}
+                totalDelivered={totalDelivered}
+              />
+              <StatusMonitor
+                clients={clientStatusItems}
+                onClientClick={(client) => {
+                  console.log("Client clicked:", client);
+                }}
+              />
+            </div>
+            {/* Right Column: Activity Feed */}
             <ActivityFeed activities={mockActivities} />
           </div>
         </section>
