@@ -1,4 +1,5 @@
 import Loader from "@/components/loader";
+import { StatsOverview, type Stat } from "@/components/stats-overview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -6,28 +7,125 @@ import { trpc } from "@/utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  Activity,
   AlertCircle,
   CheckCircle2,
-  Clock,
-  MessageSquare,
   Phone,
   Plus,
   RefreshCw,
   Send,
-  TrendingUp,
-  Users,
+  XCircle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
 });
 
+const mockClients = [
+  {
+    id: "1",
+    name: "Primary Business",
+    phoneNumber: "+1234567890",
+    status: "connected",
+    lastConnected: new Date(Date.now() - 1000 * 60 * 5),
+    messagesSent: 1247,
+    messagesDelivered: 1198,
+    messagesFailed: 12,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
+  },
+  {
+    id: "2",
+    name: "Support Line",
+    phoneNumber: "+1234567891",
+    status: "connected",
+    lastConnected: new Date(Date.now() - 1000 * 60 * 2),
+    messagesSent: 3421,
+    messagesDelivered: 3389,
+    messagesFailed: 8,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45),
+  },
+  {
+    id: "3",
+    name: "Marketing Account",
+    phoneNumber: "+1234567892",
+    status: "disconnected",
+    lastConnected: new Date(Date.now() - 1000 * 60 * 60 * 2),
+    messagesSent: 892,
+    messagesDelivered: 856,
+    messagesFailed: 24,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15),
+  },
+  {
+    id: "4",
+    name: "Sales Team",
+    phoneNumber: "+1234567893",
+    status: "connecting",
+    lastConnected: null,
+    messagesSent: 0,
+    messagesDelivered: 0,
+    messagesFailed: 0,
+    createdAt: new Date(Date.now() - 1000 * 60 * 10),
+  },
+];
+
 function HomeComponent() {
+  const connectedClients = mockClients.filter(
+    (c) => c.status === "connected"
+  ).length;
+  const totalSent = mockClients.reduce((sum, c) => sum + c.messagesSent, 0);
+  const totalDelivered = mockClients.reduce(
+    (sum, c) => sum + c.messagesDelivered,
+    0
+  );
+  const totalFailed = mockClients.reduce((sum, c) => sum + c.messagesFailed, 0);
+
+  const deliveryRate =
+    totalSent > 0 ? Math.round((totalDelivered / totalSent) * 100) : 0;
+
+  const stats: Stat[] = [
+    {
+      label: "Active Clients",
+      value: connectedClients,
+      total: mockClients.length,
+      icon: Phone,
+      color: "text-success",
+      bgColor: "bg-success/10",
+      trend: connectedClients > 0 ? "up" : "neutral",
+      trendText: "+3",
+      trendLabel: "this week",
+    },
+    {
+      label: "Messages Sent",
+      value: totalSent.toLocaleString(),
+      icon: Send,
+      color: "text-info",
+      bgColor: "bg-info/10",
+      trend: "up",
+      trendText: "+24%",
+      trendLabel: "from yesterday",
+    },
+    {
+      label: "Delivered",
+      value: totalDelivered.toLocaleString(),
+      subtitle: `${deliveryRate}% rate`,
+      icon: CheckCircle2,
+      color: "text-success",
+      bgColor: "bg-success/10",
+      trend: deliveryRate >= 90 ? "up" : "neutral",
+    },
+    {
+      label: "Failed",
+      value: totalFailed.toLocaleString(),
+      icon: XCircle,
+      color: "text-destructive",
+      bgColor: "bg-destructive/10",
+      trend: totalFailed > 0 ? "down" : "neutral",
+    },
+  ];
+
   const { data, isLoading, isError, refetch } = useQuery(
     trpc.healthCheck.queryOptions(undefined, {
       refetchInterval: 30000,
-    }),
+    })
   );
 
   if (isLoading) {
@@ -67,10 +165,10 @@ function HomeComponent() {
       {/* Compact Toolbar */}
       <div className="flex items-center justify-between h-9 px-3 border-b bg-muted/20">
         <div className="flex items-center gap-2">
-          <h1 className="text-sm font-semibold">Dashboard</h1>
+          <h1 className="text-sm font-semibold">Real-Time Dashboard</h1>
           <Separator orientation="vertical" className="h-4" />
           <span className="text-xs text-muted-foreground">
-            WhatsApp Client Manager
+            Monitor client status and message activity in real-time
           </span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -92,183 +190,8 @@ function HomeComponent() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-3">
-        {/* Compact Stats Grid */}
-        <div className="grid grid-cols-4 gap-2 mb-3">
-          <Card className="shadow-none border-muted">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                  Active Clients
-                </span>
-                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-              <div className="text-xl font-bold">12</div>
-              <div className="flex items-center gap-1 mt-1">
-                <TrendingUp className="h-2.5 w-2.5 text-green-600" />
-                <span className="text-[10px] text-green-600 font-medium">
-                  +3
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  this week
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-none border-muted">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                  Messages Sent
-                </span>
-                <Send className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-              <div className="text-xl font-bold">1,847</div>
-              <div className="flex items-center gap-1 mt-1">
-                <TrendingUp className="h-2.5 w-2.5 text-green-600" />
-                <span className="text-[10px] text-green-600 font-medium">
-                  +24%
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  from yesterday
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-none border-muted">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                  Active Campaigns
-                </span>
-                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-              <div className="text-xl font-bold">5</div>
-              <span className="text-[10px] text-muted-foreground mt-1 block">
-                2 scheduled, 3 running
-              </span>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-none border-muted">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                  Success Rate
-                </span>
-                <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-              <div className="text-xl font-bold">98.5%</div>
-              <span className="text-[10px] text-muted-foreground mt-1 block">
-                Last 7 days
-              </span>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Compact WhatsApp Clients */}
-        <Card className="shadow-none border-muted mb-3">
-          <CardHeader className="px-3 py-2 border-b">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wide">
-              WhatsApp Clients
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y">
-              <div className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors">
-                <div className="flex items-center gap-2 min-w-0">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium">+1 (555) 123-4567</p>
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      Connected • Last active 2 min ago
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[10px] font-medium text-green-600 flex-shrink-0">
-                  Online
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors">
-                <div className="flex items-center gap-2 min-w-0">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium">+1 (555) 987-6543</p>
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      Connected • Sending messages
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[10px] font-medium text-green-600 flex-shrink-0">
-                  Online
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors">
-                <div className="flex items-center gap-2 min-w-0">
-                  <AlertCircle className="h-3.5 w-3.5 text-yellow-600 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium">+1 (555) 456-7890</p>
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      Reconnecting...
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[10px] font-medium text-yellow-600 flex-shrink-0">
-                  Pending
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Compact Recent Activity */}
-        <Card className="shadow-none border-muted">
-          <CardHeader className="px-3 py-2 border-b">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wide">
-              Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y">
-              <div className="flex items-start gap-2 px-3 py-2 hover:bg-muted/50 transition-colors">
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium">
-                    Campaign "Summer Sale" completed
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    247 messages sent • 2 minutes ago
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 px-3 py-2 hover:bg-muted/50 transition-colors">
-                <div className="h-1.5 w-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium">
-                    New client +1 (555) 123-4567 connected
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    15 minutes ago
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 px-3 py-2 hover:bg-muted/50 transition-colors">
-                <div className="h-1.5 w-1.5 rounded-full bg-yellow-500 mt-1.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium">
-                    Campaign "Product Launch" scheduled
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    Starts in 2 hours • 1 hour ago
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Stats Overview */}
+        <StatsOverview stats={stats} columns={4} />
       </div>
     </div>
   );
