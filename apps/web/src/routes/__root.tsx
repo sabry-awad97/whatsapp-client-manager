@@ -1,3 +1,4 @@
+import { AppSidebar } from "@/components/app-sidebar";
 import Loader from "@/components/loader";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,7 +11,7 @@ import {
   createRootRouteWithContext,
   useRouterState,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+// import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import "../index.css";
 
 export interface RouterAppContext {
@@ -23,11 +24,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "template-app",
+        title: "Template App - Dashboard",
       },
       {
         name: "description",
-        content: "template-app is a web application",
+        content: "Modern full-stack application with clean architecture",
       },
     ],
     links: [
@@ -53,10 +54,20 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <div>{isFetching ? <Loader /> : <Outlet />}</div>
+        <div className="flex min-h-screen bg-background antialiased">
+          <AppSidebar />
+          <main
+            className="flex-1 overflow-auto"
+            style={{ marginLeft: "var(--sidebar-width, 208px)" }}
+          >
+            <div className="h-full p-4">
+              {isFetching ? <Loader /> : <Outlet />}
+            </div>
+          </main>
+        </div>
         <Toaster richColors />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
+      {/* <TanStackRouterDevtools position="bottom-left" /> */}
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
     </>
   );
