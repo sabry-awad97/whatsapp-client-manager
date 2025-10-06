@@ -2,6 +2,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import Loader from "@/components/loader";
 import { StatusBar } from "@/components/status-bar";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Toaster } from "@/components/ui/sonner";
 import { trpc } from "@/utils/trpc";
 import type { QueryClient } from "@tanstack/react-query";
@@ -66,15 +67,17 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <div className="flex min-h-screen bg-background antialiased pb-6">
+        <div className="flex h-screen bg-background antialiased">
           <AppSidebar />
           <main
-            className="flex-1 overflow-auto"
+            className="flex-1 overflow-hidden"
             style={{ marginLeft: "var(--sidebar-width, 208px)" }}
           >
-            <div className="h-full p-4">
-              {isFetching ? <Loader /> : <Outlet />}
-            </div>
+            <ScrollArea className="h-full">
+              <div className="p-4 pb-10">
+                {isFetching ? <Loader /> : <Outlet />}
+              </div>
+            </ScrollArea>
           </main>
         </div>
         <StatusBar serverStatus={serverStatus} />

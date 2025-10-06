@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 export interface Stat {
   label: string;
@@ -28,81 +28,99 @@ export function StatsOverview({
   className,
 }: StatsOverviewProps) {
   const gridColsClass = {
-    2: "grid-cols-2",
-    3: "grid-cols-3",
-    4: "grid-cols-4",
-    5: "grid-cols-5",
-    6: "grid-cols-6",
+    2: "grid-cols-1 sm:grid-cols-2",
+    3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+    4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+    5: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
+    6: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6",
   }[columns];
 
   return (
-    <div className={cn("grid gap-1.5 mb-2", gridColsClass, className)}>
+    <div className={cn("grid gap-3 mb-4", gridColsClass, className)}>
       {stats.map((stat) => {
         const Icon = stat.icon;
+        const TrendIcon =
+          stat.trend === "up"
+            ? TrendingUp
+            : stat.trend === "down"
+              ? TrendingDown
+              : Minus;
+
         return (
           <Card
             key={stat.label}
-            className="shadow-none border-muted hover:bg-muted/50 transition-colors"
+            className="group relative overflow-hidden shadow-sm border-muted/50 hover:border-muted hover:shadow-md transition-all duration-300 hover:-translate-y-0.5"
           >
-            <CardContent className="py-0">
-              <div className="flex items-start justify-between mb-1.5">
-                <div className={cn("p-1 rounded-md", stat.bgColor)}>
-                  <Icon className={cn("h-3 w-3", stat.color)} />
+            {/* Subtle gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-muted/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+            <CardContent className="relative py-4 px-5">
+              <div className="flex items-start justify-between mb-3">
+                <div
+                  className={cn(
+                    "p-2.5 rounded-lg transition-all duration-300 group-hover:scale-110",
+                    stat.bgColor,
+                  )}
+                >
+                  <Icon className={cn("h-4 w-4", stat.color)} />
                 </div>
                 {stat.trend !== "neutral" && (
                   <div
                     className={cn(
-                      "flex items-center gap-0.5 text-[10px] font-medium px-1 py-0.5 rounded-full",
+                      "flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full transition-all duration-300",
                       stat.trend === "up"
-                        ? "text-green-600 bg-green-600/10"
-                        : "text-red-600 bg-red-600/10"
+                        ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/50"
+                        : "text-rose-700 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/50",
                     )}
                   >
-                    <TrendingUp
-                      className={cn(
-                        "h-2 w-2",
-                        stat.trend === "down" && "rotate-180"
-                      )}
-                    />
+                    <TrendIcon className="h-3 w-3" />
                   </div>
                 )}
               </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
+
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   {stat.label}
                 </p>
-                <p className="text-lg font-bold leading-none">
-                  {stat.value}
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-bold leading-none tracking-tight">
+                    {stat.value}
+                  </p>
                   {stat.total !== undefined && (
-                    <span className="text-xs text-muted-foreground font-normal ml-1">
-                      /{stat.total}
+                    <span className="text-sm text-muted-foreground font-medium">
+                      / {stat.total}
                     </span>
                   )}
-                </p>
+                </div>
+
                 {stat.trendText && stat.trendLabel && (
-                  <div className="flex items-center gap-0.5 mt-0.5">
-                    <TrendingUp
+                  <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-muted/30">
+                    <TrendIcon
                       className={cn(
-                        "h-2 w-2",
-                        stat.trend === "up" ? "text-green-600" : "text-red-600",
-                        stat.trend === "down" && "rotate-180"
+                        "h-3 w-3",
+                        stat.trend === "up"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-rose-600 dark:text-rose-400",
                       )}
                     />
                     <span
                       className={cn(
-                        "text-[10px] font-medium",
-                        stat.trend === "up" ? "text-green-600" : "text-red-600"
+                        "text-xs font-semibold",
+                        stat.trend === "up"
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-rose-700 dark:text-rose-400",
                       )}
                     >
                       {stat.trendText}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {stat.trendLabel}
                     </span>
                   </div>
                 )}
+
                 {stat.subtitle && !stat.trendText && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-muted/30">
                     {stat.subtitle}
                   </p>
                 )}
