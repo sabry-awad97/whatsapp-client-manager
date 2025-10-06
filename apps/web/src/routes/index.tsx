@@ -1,5 +1,6 @@
 import Loader from "@/components/loader";
 import { StatsOverview, type Stat } from "@/components/stats-overview";
+import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -10,7 +11,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Phone,
-  Plus,
   RefreshCw,
   Send,
   XCircle,
@@ -172,19 +172,16 @@ function HomeComponent() {
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Button
+          <TooltipIconButton
+            tooltip="Refresh"
             variant="ghost"
             size="sm"
             className="h-7 px-2"
             onClick={() => refetch()}
           >
             <RefreshCw className="h-3 w-3 mr-1" />
-            <span className="text-xs">Refresh</span>
-          </Button>
-          <Button size="sm" className="h-7 px-2">
-            <Plus className="h-3 w-3 mr-1" />
-            <span className="text-xs">New Client</span>
-          </Button>
+            <span className="sr-only">Refresh</span>
+          </TooltipIconButton>
         </div>
       </div>
 
