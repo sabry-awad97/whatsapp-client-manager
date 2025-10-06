@@ -1,0 +1,26 @@
+{
+  "name": "@template-app/auth",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsdown"
+  },
+  "devDependencies": {
+    "tsdown": "0.15.6"
+  },
+  "peerDependencies": {
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "zod": "4.1.12"
+  }
+}

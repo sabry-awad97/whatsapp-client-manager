@@ -1,0 +1,31 @@
+{
+  "name": "@template-app/api",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsdown"
+  },
+  "devDependencies": {
+    "tsdown": "0.15.6"
+  },
+  "peerDependencies": {
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "@trpc/server": "11.6.0",
+    "@trpc/client": "11.6.0",
+    "dotenv": "17.2.3",
+    "zod": "4.1.12",
+    "@template-app/auth": "workspace:*",
+    "@template-app/db": "workspace:*"
+  }
+}

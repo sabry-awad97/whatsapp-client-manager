@@ -1,0 +1,31 @@
+{
+  "name": "template-app",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "check-types": "turbo check-types",
+    "dev:native": "turbo -F native dev",
+    "dev:web": "turbo -F web dev",
+    "dev:server": "turbo -F server dev",
+    "db:push": "turbo -F @template-app/db db:push",
+    "db:studio": "turbo -F @template-app/db db:studio",
+    "db:generate": "turbo -F @template-app/db db:generate",
+    "db:migrate": "turbo -F @template-app/db db:migrate"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.8",
+    "tsdown": "^0.15.6",
+    "@types/bun": "^1.2.23"
+  },
+  "packageManager": "bun@1.2.19"
+}
