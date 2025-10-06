@@ -10,11 +10,11 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Database,
-  HardDrive,
+  MessageSquare,
+  Phone,
   Plus,
   RefreshCw,
-  Server,
+  Send,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -25,7 +25,9 @@ export const Route = createFileRoute("/")({
 
 function HomeComponent() {
   const { data, isLoading, isError, refetch } = useQuery(
-    trpc.healthCheck.queryOptions(),
+    trpc.healthCheck.queryOptions(undefined, {
+      refetchInterval: 30000,
+    }),
   );
 
   if (isLoading) {
@@ -61,207 +63,207 @@ function HomeComponent() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between pb-3 border-b">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-lg font-semibold leading-none">Dashboard</h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              System overview and statistics
-            </p>
-          </div>
-        </div>
+    <div className="h-full flex flex-col gap-0">
+      {/* Compact Toolbar */}
+      <div className="flex items-center justify-between h-9 px-3 border-b bg-muted/20">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-            Refresh
-          </Button>
-          <Button size="sm">
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Item
-          </Button>
-        </div>
-      </div>
-
-      {/* Status Bar */}
-      <div className="flex items-center gap-4 py-2 px-3 bg-muted/30 border-b text-xs">
-        <div className="flex items-center gap-1.5">
-          <div
-            className={`h-1.5 w-1.5 rounded-full ${isError ? "bg-red-500" : "bg-green-500"}`}
-          />
-          <span className="font-medium">Server:</span>
-          <span className="text-muted-foreground">{data}</span>
-        </div>
-        <Separator orientation="vertical" className="h-3" />
-        <div className="flex items-center gap-1.5">
-          <Clock className="h-3 w-3 text-muted-foreground" />
-          <span className="text-muted-foreground">
-            Last updated: {new Date().toLocaleTimeString()}
+          <h1 className="text-sm font-semibold">Dashboard</h1>
+          <Separator orientation="vertical" className="h-4" />
+          <span className="text-xs text-muted-foreground">
+            WhatsApp Client Manager
           </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2"
+            onClick={() => refetch()}
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            <span className="text-xs">Refresh</span>
+          </Button>
+          <Button size="sm" className="h-7 px-2">
+            <Plus className="h-3 w-3 mr-1" />
+            <span className="text-xs">New Client</span>
+          </Button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto py-4">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-4 gap-3 mb-4">
-          <Card className="shadow-none">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-medium text-muted-foreground">
-                  Total Users
-                </CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+      <div className="flex-1 overflow-auto p-3">
+        {/* Compact Stats Grid */}
+        <div className="grid grid-cols-4 gap-2 mb-3">
+          <Card className="shadow-none border-muted">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Active Clients
+                </span>
+                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
-            </CardHeader>
-            <CardContent className="pb-3">
-              <div className="text-2xl font-bold">1,234</div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <TrendingUp className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">+12%</span> from last month
-              </p>
+              <div className="text-xl font-bold">12</div>
+              <div className="flex items-center gap-1 mt-1">
+                <TrendingUp className="h-2.5 w-2.5 text-green-600" />
+                <span className="text-[10px] text-green-600 font-medium">
+                  +3
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  this week
+                </span>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-none">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-medium text-muted-foreground">
-                  Active Sessions
-                </CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
+          <Card className="shadow-none border-muted">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Messages Sent
+                </span>
+                <Send className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
-            </CardHeader>
-            <CardContent className="pb-3">
-              <div className="text-2xl font-bold">89</div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <TrendingUp className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">+5%</span> from last hour
-              </p>
+              <div className="text-xl font-bold">1,847</div>
+              <div className="flex items-center gap-1 mt-1">
+                <TrendingUp className="h-2.5 w-2.5 text-green-600" />
+                <span className="text-[10px] text-green-600 font-medium">
+                  +24%
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  from yesterday
+                </span>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-none">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-medium text-muted-foreground">
-                  Database Size
-                </CardTitle>
-                <Database className="h-4 w-4 text-muted-foreground" />
+          <Card className="shadow-none border-muted">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Active Campaigns
+                </span>
+                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
-            </CardHeader>
-            <CardContent className="pb-3">
-              <div className="text-2xl font-bold">2.4 GB</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                45% of 5 GB limit
-              </p>
+              <div className="text-xl font-bold">5</div>
+              <span className="text-[10px] text-muted-foreground mt-1 block">
+                2 scheduled, 3 running
+              </span>
             </CardContent>
           </Card>
 
-          <Card className="shadow-none">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-medium text-muted-foreground">
-                  Server Uptime
-                </CardTitle>
-                <Server className="h-4 w-4 text-muted-foreground" />
+          <Card className="shadow-none border-muted">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Success Rate
+                </span>
+                <Activity className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
-            </CardHeader>
-            <CardContent className="pb-3">
-              <div className="text-2xl font-bold">99.9%</div>
-              <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
+              <div className="text-xl font-bold">98.5%</div>
+              <span className="text-[10px] text-muted-foreground mt-1 block">
+                Last 7 days
+              </span>
             </CardContent>
           </Card>
         </div>
 
-        {/* System Status */}
-        <Card className="shadow-none mb-4">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">
-              System Status
+        {/* Compact WhatsApp Clients */}
+        <Card className="shadow-none border-muted mb-3">
+          <CardHeader className="px-3 py-2 border-b">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wide">
+              WhatsApp Clients
             </CardTitle>
           </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <div>
-                    <p className="text-sm font-medium">API Server</p>
-                    <p className="text-xs text-muted-foreground">
-                      All systems operational
+          <CardContent className="p-0">
+            <div className="divide-y">
+              <div className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium">+1 (555) 123-4567</p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      Connected • Last active 2 min ago
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-medium text-green-600">
-                  Healthy
+                <span className="text-[10px] font-medium text-green-600 flex-shrink-0">
+                  Online
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <div>
-                    <p className="text-sm font-medium">Database</p>
-                    <p className="text-xs text-muted-foreground">
-                      Connected and responsive
+              <div className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium">+1 (555) 987-6543</p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      Connected • Sending messages
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-medium text-green-600">
-                  Healthy
+                <span className="text-[10px] font-medium text-green-600 flex-shrink-0">
+                  Online
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30">
-                <div className="flex items-center gap-3">
-                  <HardDrive className="h-4 w-4 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium">Storage</p>
-                    <p className="text-xs text-muted-foreground">
-                      2.4 GB / 5 GB used
+              <div className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertCircle className="h-3.5 w-3.5 text-yellow-600 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium">+1 (555) 456-7890</p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      Reconnecting...
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-medium text-blue-600">
-                  Normal
+                <span className="text-[10px] font-medium text-yellow-600 flex-shrink-0">
+                  Pending
                 </span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
-        <Card className="shadow-none">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">
+        {/* Compact Recent Activity */}
+        <Card className="shadow-none border-muted">
+          <CardHeader className="px-3 py-2 border-b">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wide">
               Recent Activity
             </CardTitle>
           </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-2 text-sm">
-              <div className="flex items-start gap-3 py-2 px-3 rounded-md hover:bg-muted/30 transition-colors">
-                <div className="h-2 w-2 rounded-full bg-blue-500 mt-1.5" />
+          <CardContent className="p-0">
+            <div className="divide-y">
+              <div className="flex items-start gap-2 px-3 py-2 hover:bg-muted/50 transition-colors">
+                <div className="h-1.5 w-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium">System backup completed</p>
-                  <p className="text-xs text-muted-foreground">2 minutes ago</p>
+                  <p className="text-xs font-medium">
+                    Campaign "Summer Sale" completed
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    247 messages sent • 2 minutes ago
+                  </p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 py-2 px-3 rounded-md hover:bg-muted/30 transition-colors">
-                <div className="h-2 w-2 rounded-full bg-green-500 mt-1.5" />
+              <div className="flex items-start gap-2 px-3 py-2 hover:bg-muted/50 transition-colors">
+                <div className="h-1.5 w-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium">New user registered</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs font-medium">
+                    New client +1 (555) 123-4567 connected
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
                     15 minutes ago
                   </p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 py-2 px-3 rounded-md hover:bg-muted/30 transition-colors">
-                <div className="h-2 w-2 rounded-full bg-yellow-500 mt-1.5" />
+              <div className="flex items-start gap-2 px-3 py-2 hover:bg-muted/50 transition-colors">
+                <div className="h-1.5 w-1.5 rounded-full bg-yellow-500 mt-1.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium">Database optimization started</p>
-                  <p className="text-xs text-muted-foreground">1 hour ago</p>
+                  <p className="text-xs font-medium">
+                    Campaign "Product Launch" scheduled
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Starts in 2 hours • 1 hour ago
+                  </p>
                 </div>
               </div>
             </div>

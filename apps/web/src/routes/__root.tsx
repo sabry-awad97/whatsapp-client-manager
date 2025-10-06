@@ -1,9 +1,11 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import Loader from "@/components/loader";
+import { StatusBar } from "@/components/status-bar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import type { trpc } from "@/utils/trpc";
+import { trpc } from "@/utils/trpc";
 import type { QueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   HeadContent,
@@ -24,11 +26,12 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "Template App - Dashboard",
+        title: "WhatsApp Client Manager - Dashboard",
       },
       {
         name: "description",
-        content: "Modern full-stack application with clean architecture",
+        content:
+          "Manage multiple WhatsApp clients, send bulk messages, and monitor campaigns",
       },
     ],
     links: [
@@ -45,6 +48,15 @@ function RootComponent() {
     select: (s) => s.isLoading,
   });
 
+  const { isLoading, isError } = useQuery(
+    trpc.healthCheck.queryOptions(undefined, {
+      refetchInterval: 30000,
+      retry: false,
+    }),
+  );
+
+  const serverStatus = isLoading ? "checking" : isError ? "offline" : "online";
+
   return (
     <>
       <HeadContent />
@@ -54,7 +66,7 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <div className="flex min-h-screen bg-background antialiased">
+        <div className="flex min-h-screen bg-background antialiased pb-6">
           <AppSidebar />
           <main
             className="flex-1 overflow-auto"
@@ -65,6 +77,7 @@ function RootComponent() {
             </div>
           </main>
         </div>
+        <StatusBar serverStatus={serverStatus} />
         <Toaster richColors />
       </ThemeProvider>
       {/* <TanStackRouterDevtools position="bottom-left" /> */}
