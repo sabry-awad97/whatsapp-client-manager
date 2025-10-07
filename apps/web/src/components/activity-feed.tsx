@@ -157,7 +157,7 @@ export function ActivityFeed({
                         <div
                           className={cn(
                             "p-1.5 rounded-full z-10",
-                            config.bgColor
+                            config.bgColor,
                           )}
                         >
                           <Icon className={cn("h-3 w-3", config.color)} />

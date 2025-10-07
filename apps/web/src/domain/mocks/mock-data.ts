@@ -24,6 +24,26 @@ export interface MockClient {
   createdAt: Date;
 }
 
+export type MessageStatus =
+  | "pending"
+  | "sent"
+  | "delivered"
+  | "read"
+  | "failed";
+
+export interface Message {
+  id: string;
+  clientId: string;
+  recipient: string;
+  content: string;
+  status: MessageStatus;
+  sentAt: Date;
+  deliveredAt?: Date;
+  readAt?: Date;
+  templateId?: string;
+  error?: string;
+}
+
 export interface MockActivity {
   id: string;
   type: ActivityType;
@@ -64,7 +84,7 @@ function getRelativeTimestamp(minutesAgo: number): Date {
 export function generateChartData(
   points: number,
   trend: "up" | "down" | "stable",
-  baseMetric?: number
+  baseMetric?: number,
 ): Array<{ value: number; timestamp?: string }> {
   const data = [];
 
@@ -101,7 +121,7 @@ export function generateChartData(
  */
 export function generateMetricChartData(
   metricType: "sent" | "delivered" | "failed" | "rate",
-  points: number = 20
+  points: number = 20,
 ): Array<{ value: number }> {
   const clients = mockClients;
 
@@ -241,6 +261,54 @@ export const mockClients: MockClient[] = [
     messagesDelivered: 228,
     messagesFailed: 6,
     createdAt: getRelativeTimestamp(60 * 24 * 100), // 100 days ago
+  },
+];
+
+export const mockMessages: Message[] = [
+  {
+    id: "msg-1",
+    clientId: "1",
+    recipient: "+1234567890",
+    content: "Welcome to our service!",
+    status: "delivered",
+    sentAt: new Date(Date.now() - 1000 * 60 * 30),
+    deliveredAt: new Date(Date.now() - 1000 * 60 * 29),
+  },
+  {
+    id: "msg-2",
+    clientId: "1",
+    recipient: "+1234567891",
+    content: "Your order has been confirmed",
+    status: "read",
+    sentAt: new Date(Date.now() - 1000 * 60 * 60),
+    deliveredAt: new Date(Date.now() - 1000 * 60 * 59),
+    readAt: new Date(Date.now() - 1000 * 60 * 58),
+  },
+  {
+    id: "msg-3",
+    clientId: "2",
+    recipient: "+1234567892",
+    content: "Thank you for contacting support",
+    status: "delivered",
+    sentAt: new Date(Date.now() - 1000 * 60 * 15),
+    deliveredAt: new Date(Date.now() - 1000 * 60 * 14),
+  },
+  {
+    id: "msg-4",
+    clientId: "1",
+    recipient: "+1234567893",
+    content: "Your appointment is scheduled for tomorrow",
+    status: "sent",
+    sentAt: new Date(Date.now() - 1000 * 60 * 5),
+  },
+  {
+    id: "msg-5",
+    clientId: "3",
+    recipient: "+1234567894",
+    content: "Special offer just for you!",
+    status: "failed",
+    sentAt: new Date(Date.now() - 1000 * 60 * 45),
+    error: "Recipient number is invalid",
   },
 ];
 
@@ -443,12 +511,12 @@ export const mockActivities: MockActivity[] = [
  */
 export function calculateMetrics(clients: MockClient[]): MockMetrics {
   const connectedClients = clients.filter(
-    (c) => c.status === "connected"
+    (c) => c.status === "connected",
   ).length;
   const totalSent = clients.reduce((sum, c) => sum + c.messagesSent, 0);
   const totalDelivered = clients.reduce(
     (sum, c) => sum + c.messagesDelivered,
-    0
+    0,
   );
   const totalFailed = clients.reduce((sum, c) => sum + c.messagesFailed, 0);
   const deliveryRate =
@@ -515,6 +583,6 @@ export function getRecentActivities(count: number): MockActivity[] {
  */
 export function getActivitiesByClient(clientName: string): MockActivity[] {
   return mockActivities.filter(
-    (activity) => activity.metadata?.clientName === clientName
+    (activity) => activity.metadata?.clientName === clientName,
   );
 }

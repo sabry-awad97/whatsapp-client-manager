@@ -1,6 +1,6 @@
 import { ActivityFeed } from "@/components/activity-feed";
 import { LiveMetrics, type Metric } from "@/components/live-metrics";
-import Loader from "@/components/loader";
+import { DashboardSkeleton } from "@/components/loading-skeleton";
 import { MessageActivityChart } from "@/components/message-activity-chart";
 import { StatsOverview, type Stat } from "@/components/stats-overview";
 import {
@@ -11,12 +11,10 @@ import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  calculateMetrics,
-  generateChartData,
-  getActivities,
-  getClients,
-} from "@/domain/mocks";
+import { generateChartData } from "@/domain/mocks";
+import { useActivities } from "@/hooks/use-activities";
+import { useClients } from "@/hooks/use-clients";
+import { useMetrics } from "@/hooks/use-metrics";
 import { trpc } from "@/utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -37,24 +35,39 @@ export const Route = createFileRoute("/")({
 });
 
 function HomeComponent() {
-  // Get mock data from centralized source
-  const mockClients = getClients();
-  const mockActivities = getActivities();
-  const metrics = calculateMetrics(mockClients);
+  // Fetch data using TanStack Query hooks
+  const {
+    data: clients,
+    isLoading: isLoadingClients,
+    isError: isErrorClients,
+  } = useClients();
 
   const {
-    connectedClients,
-    totalSent,
-    totalDelivered,
-    totalFailed,
-    deliveryRate,
-  } = metrics;
+    data: activities,
+    isLoading: isLoadingActivities,
+    isError: isErrorActivities,
+  } = useActivities();
+
+  const {
+    data: metrics,
+    isLoading: isLoadingMetrics,
+    isError: isErrorMetrics,
+  } = useMetrics();
+
+  // Extract metrics with safe defaults
+  const {
+    connectedClients = 0,
+    totalSent = 0,
+    totalDelivered = 0,
+    totalFailed = 0,
+    deliveryRate = 0,
+  } = metrics || {};
 
   const stats: Stat[] = [
     {
       label: "Active Clients",
       value: connectedClients,
-      total: mockClients.length,
+      total: clients?.length || 0,
       icon: Phone,
       color: "text-success",
       bgColor: "bg-success/10",
@@ -95,11 +108,17 @@ function HomeComponent() {
     trpc.healthCheck.queryOptions(undefined, {
       refetchInterval: 30000,
       retry: false,
-    })
+    }),
   );
 
-  if (isLoading) {
-    return <Loader />;
+  // Show skeleton while fetching initial data
+  if (
+    isLoading ||
+    isLoadingClients ||
+    isLoadingActivities ||
+    isLoadingMetrics
+  ) {
+    return <DashboardSkeleton />;
   }
 
   if (isError) {
@@ -179,13 +198,15 @@ function HomeComponent() {
   ];
 
   // Prepare data for StatusMonitor
-  const clientStatusItems: ClientStatusItem[] = mockClients.map((client) => ({
-    id: client.id,
-    name: client.name,
-    phoneNumber: client.phoneNumber,
-    status: client.status,
-    lastConnected: client.lastConnected,
-  }));
+  const clientStatusItems: ClientStatusItem[] = (clients || []).map(
+    (client) => ({
+      id: client.id,
+      name: client.name,
+      phoneNumber: client.phoneNumber,
+      status: client.status,
+      lastConnected: client.lastConnected,
+    }),
+  );
 
   return (
     <div className="flex flex-col gap-0">
@@ -267,7 +288,7 @@ function HomeComponent() {
               />
             </div>
             {/* Right Column: Activity Feed */}
-            <ActivityFeed activities={mockActivities} />
+            <ActivityFeed activities={activities || []} />
           </div>
         </section>
       </div>

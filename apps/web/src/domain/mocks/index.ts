@@ -1,6 +1,6 @@
 /**
  * Public API for Mock Data
- * 
+ *
  * Import all mock data and utilities from this file
  */
 
@@ -9,7 +9,9 @@ export {
   type MockClient,
   type MockActivity,
   type MockMetrics,
-  
+  type Message,
+  type MessageStatus,
+
   // Data Accessors
   getClients,
   getClientById,
@@ -18,7 +20,7 @@ export {
   getActivitiesByType,
   getRecentActivities,
   getActivitiesByClient,
-  
+
   // Utilities
   calculateMetrics,
   generateChartData,
