@@ -34,25 +34,25 @@ import { lazy, Suspense, useCallback, useMemo } from "react";
 const LiveMetrics = lazy(() =>
   import("@/components/live-metrics").then((mod) => ({
     default: mod.LiveMetrics,
-  }))
+  })),
 );
 
 const MessageActivityChart = lazy(() =>
   import("@/components/message-activity-chart").then((mod) => ({
     default: mod.MessageActivityChart,
-  }))
+  })),
 );
 
 const StatusMonitor = lazy(() =>
   import("@/components/status-monitor").then((mod) => ({
     default: mod.StatusMonitor,
-  }))
+  })),
 );
 
 const ActivityFeed = lazy(() =>
   import("@/components/activity-feed").then((mod) => ({
     default: mod.ActivityFeed,
-  }))
+  })),
 );
 
 // Skeleton fallbacks for lazy components
@@ -165,7 +165,7 @@ function HomeComponent() {
       totalFailed,
       deliveryRate,
       clients,
-    ]
+    ],
   );
 
   // Memoize live metrics - only recalculate when dependencies change
@@ -216,7 +216,7 @@ function HomeComponent() {
         chartType: "line",
       },
     ],
-    [connectedClients, deliveryRate]
+    [connectedClients, deliveryRate],
   );
 
   // Memoize client status items - only recalculate when clients change
@@ -229,7 +229,7 @@ function HomeComponent() {
         status: client.status,
         lastConnected: client.lastConnected,
       })),
-    [clients]
+    [clients],
   );
 
   // Memoize event handlers to prevent unnecessary re-renders
@@ -246,7 +246,7 @@ function HomeComponent() {
     trpc.healthCheck.queryOptions(undefined, {
       refetchInterval: 30000,
       retry: false,
-    })
+    }),
   );
 
   // Determine overall loading state

@@ -130,7 +130,7 @@ export function InlineError({
     <div
       className={cn(
         "rounded-lg border-2 border-destructive/20 bg-destructive/10 p-4",
-        className
+        className,
       )}
     >
       <div className="flex items-start gap-3">
