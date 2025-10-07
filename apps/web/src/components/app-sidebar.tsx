@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   Search,
+  Send,
   Settings,
   UserCircle,
   Users,
@@ -22,6 +23,8 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard, group: "Main" },
   { name: "Clients", href: "/clients", icon: UserCircle, group: "Main" },
   { name: "Messages", href: "/messages", icon: MessageSquare, group: "Main" },
+  { name: "Campaigns", href: "/campaigns", icon: Send, group: "Main" },
+
   { name: "Users", href: "/users", icon: Users, group: "Management" },
   { name: "Settings", href: "/settings", icon: Settings, group: "Management" },
 ];
