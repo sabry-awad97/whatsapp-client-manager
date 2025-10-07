@@ -8,7 +8,6 @@ import { DashboardSkeleton } from "@/components/loading-skeleton";
 import { StatsOverview, type Stat } from "@/components/stats-overview";
 import type { ClientStatusItem } from "@/components/status-monitor";
 import { TooltipIconButton } from "@/components/tooltip-icon-button";
-import { Separator } from "@/components/ui/separator";
 import { generateChartData } from "@/domain/mocks";
 import { useActivities } from "@/hooks/use-activities";
 import { useClients } from "@/hooks/use-clients";
@@ -269,31 +268,35 @@ function HomeComponent() {
 
   return (
     <div className="flex flex-col gap-0">
-      {/* Compact Toolbar */}
-      <div className="flex items-center justify-between h-9 px-3 border-b bg-muted/20">
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-semibold">Real-Time Dashboard</h1>
-          <Separator orientation="vertical" className="h-4" />
-          <span className="text-xs text-muted-foreground hidden sm:inline">
-            Monitor client status and message activity in real-time
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <TooltipIconButton
-            tooltip="Refresh"
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={() => {
-              refetchHealth();
-              refetchClients();
-              refetchActivities();
-              refetchMetrics();
-            }}
-          >
-            <RefreshCw className="h-3 w-3 mr-1" />
-            <span className="sr-only">Refresh</span>
-          </TooltipIconButton>
+      {/* Professional Toolbar */}
+      <div className="border-b bg-gradient-to-r from-background to-muted/20">
+        <div className="flex items-center justify-between p-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight">
+              Real-Time Dashboard
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Comprehensive overview of client connections, message delivery,
+              and system performance
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <TooltipIconButton
+              tooltip="Refresh all data"
+              variant="outline"
+              size="sm"
+              className="h-9 px-3 gap-2"
+              onClick={() => {
+                refetchHealth();
+                refetchClients();
+                refetchActivities();
+                refetchMetrics();
+              }}
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="sr-only">Refresh</span>
+            </TooltipIconButton>
+          </div>
         </div>
       </div>
 

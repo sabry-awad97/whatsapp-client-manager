@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar";
+import { BreadcrumbNav } from "@/components/breadcrumb-nav";
 import Loader from "@/components/loader";
 import { StatusBar } from "@/components/status-bar";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -74,6 +75,13 @@ function RootComponent() {
             style={{ marginLeft: "var(--sidebar-width, 208px)" }}
           >
             <ScrollArea className="h-full">
+              {/* Breadcrumb Navigation */}
+              <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <div className="px-4 py-3">
+                  <BreadcrumbNav />
+                </div>
+              </div>
+              {/* Main Content */}
               <div className="p-4 pb-10">
                 {isFetching ? <Loader /> : <Outlet />}
               </div>

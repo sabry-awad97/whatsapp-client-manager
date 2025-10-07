@@ -20,7 +20,7 @@ import { useEffect, useState } from "react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard, group: "Main" },
-  { name: "Projects", href: "/projects", icon: FolderOpen, group: "Main" },
+  { name: "Clients", href: "/clients", icon: FolderOpen, group: "Main" },
   { name: "Documents", href: "/documents", icon: FileText, group: "Main" },
   { name: "Users", href: "/users", icon: Users, group: "Management" },
   { name: "Settings", href: "/settings", icon: Settings, group: "Management" },
@@ -35,12 +35,12 @@ export function AppSidebar() {
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--sidebar-width",
-      isCollapsed ? "56px" : "208px",
+      isCollapsed ? "56px" : "208px"
     );
   }, [isCollapsed]);
 
   const filteredNavigation = navigation.filter((item) =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()),
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const groupedNavigation = filteredNavigation.reduce(
@@ -51,14 +51,14 @@ export function AppSidebar() {
       acc[item.group].push(item);
       return acc;
     },
-    {} as Record<string, typeof navigation>,
+    {} as Record<string, typeof navigation>
   );
 
   return (
     <aside
       className={cn(
         "fixed left-0 top-0 z-40 h-screen border-r border-border bg-card transition-all duration-300",
-        isCollapsed ? "w-14" : "w-52",
+        isCollapsed ? "w-14" : "w-52"
       )}
     >
       <div className="flex h-full flex-col">
@@ -127,7 +127,7 @@ export function AppSidebar() {
                         isActive
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                        isCollapsed && "justify-center",
+                        isCollapsed && "justify-center"
                       )}
                       title={isCollapsed ? item.name : undefined}
                     >
