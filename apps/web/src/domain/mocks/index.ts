@@ -5,14 +5,21 @@
  */
 
 export {
-  // Types
+  // Client Types
   type MockClient,
   type MockActivity,
   type MockMetrics,
   type Message,
   type MessageStatus,
 
-  // Data Accessors
+  // Campaign Types
+  type CampaignStatus,
+  type CampaignProgress,
+  type MessageTemplate,
+  type Recipient,
+  type BulkCampaign,
+
+  // Client Data Accessors
   getClients,
   getClientById,
   getClientsByStatus,
@@ -20,6 +27,15 @@ export {
   getActivitiesByType,
   getRecentActivities,
   getActivitiesByClient,
+
+  // Campaign Data Accessors
+  getCampaigns,
+  getCampaignById,
+  getCampaignsByStatus,
+  getCampaignsByClient,
+  getTemplates,
+  getTemplateById,
+  getTemplatesByCategory,
 
   // Utilities
   calculateMetrics,

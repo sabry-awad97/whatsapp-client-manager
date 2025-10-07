@@ -38,6 +38,14 @@ import {
   type RateLimitConfig,
   RATE_LIMIT_PRESETS,
 } from "@/lib/campaign-utils";
+import {
+  type BulkCampaign,
+  type CampaignStatus,
+  type MessageTemplate,
+  type Recipient,
+  getCampaigns,
+  getTemplates,
+} from "@/domain/mocks";
 import { cn } from "@/lib/utils";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -82,62 +90,8 @@ export const Route = createFileRoute("/campaigns")({
 });
 
 // ============================================================================
-// TYPES - Bulk Messaging System
+// LOCAL TYPES (Not in centralized mock data)
 // ============================================================================
-
-type CampaignStatus =
-  | "draft"
-  | "scheduled"
-  | "running"
-  | "paused"
-  | "completed"
-  | "failed";
-type RecipientStatus = "pending" | "sent" | "delivered" | "read" | "failed";
-
-interface BulkCampaign {
-  id: string;
-  name: string;
-  description?: string;
-  template: MessageTemplate;
-  clientId: string;
-  recipients: Recipient[];
-  status: CampaignStatus;
-  progress: CampaignProgress;
-  createdAt: Date;
-  scheduledAt?: Date;
-  startedAt?: Date;
-  completedAt?: Date;
-  estimatedDuration?: number; // in minutes
-}
-
-interface MessageTemplate {
-  id: string;
-  name: string;
-  content: string;
-  variables: string[]; // e.g., ["name", "company", "date"]
-  category?: string;
-}
-
-interface Recipient {
-  id: string;
-  phoneNumber: string;
-  name?: string;
-  variables: Record<string, string>; // Variable values for this recipient
-  status: RecipientStatus;
-  sentAt?: Date;
-  deliveredAt?: Date;
-  readAt?: Date;
-  error?: string;
-}
-
-interface CampaignProgress {
-  total: number;
-  sent: number;
-  delivered: number;
-  read: number;
-  failed: number;
-  pending: number;
-}
 
 interface CampaignFormData {
   name: string;
@@ -159,112 +113,9 @@ interface TemplateFormData {
 // ============================================================================
 
 function CampaignsPage() {
-  // State
-  const [campaigns, setCampaigns] = useState<BulkCampaign[]>([
-    {
-      id: "1",
-      name: "Welcome Campaign",
-      description: "Send welcome messages to new customers",
-      clientId: "1",
-      template: {
-        id: "t1",
-        name: "Welcome Message",
-        content: "Hi {name}, welcome to {company}!",
-        variables: ["name", "company"],
-        category: "Onboarding",
-      },
-      recipients: [],
-      status: "running",
-      progress: {
-        total: 1000,
-        sent: 750,
-        delivered: 720,
-        read: 680,
-        failed: 30,
-        pending: 250,
-      },
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
-      startedAt: new Date(Date.now() - 1000 * 60 * 60),
-      estimatedDuration: 45,
-    },
-    {
-      id: "2",
-      name: "Product Launch",
-      description: "Announce new product to existing customers",
-      clientId: "2",
-      template: {
-        id: "t2",
-        name: "Product Announcement",
-        content: "Hi {name}, check out our new {product}!",
-        variables: ["name", "product"],
-        category: "Marketing",
-      },
-      recipients: [],
-      status: "scheduled",
-      progress: {
-        total: 500,
-        sent: 0,
-        delivered: 0,
-        read: 0,
-        failed: 0,
-        pending: 500,
-      },
-      createdAt: new Date(Date.now() - 1000 * 60 * 30),
-      scheduledAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
-      estimatedDuration: 25,
-    },
-    {
-      id: "3",
-      name: "Follow-up Campaign",
-      description: "Follow up with customers after purchase",
-      clientId: "1",
-      template: {
-        id: "t3",
-        name: "Purchase Follow-up",
-        content: "Hi {name}, how are you enjoying {product}?",
-        variables: ["name", "product"],
-        category: "Support",
-      },
-      recipients: [],
-      status: "completed",
-      progress: {
-        total: 250,
-        sent: 250,
-        delivered: 245,
-        read: 230,
-        failed: 5,
-        pending: 0,
-      },
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
-      startedAt: new Date(Date.now() - 1000 * 60 * 60 * 47),
-      completedAt: new Date(Date.now() - 1000 * 60 * 60 * 46),
-      estimatedDuration: 15,
-    },
-  ]);
-
-  const [templates] = useState<MessageTemplate[]>([
-    {
-      id: "t1",
-      name: "Welcome Message",
-      content: "Hi {name}, welcome to {company}! We're excited to have you.",
-      variables: ["name", "company"],
-      category: "Onboarding",
-    },
-    {
-      id: "t2",
-      name: "Product Announcement",
-      content: "Hi {name}, check out our new {product}! Available now.",
-      variables: ["name", "product"],
-      category: "Marketing",
-    },
-    {
-      id: "t3",
-      name: "Purchase Follow-up",
-      content: "Hi {name}, how are you enjoying {product}? Let us know!",
-      variables: ["name", "product"],
-      category: "Support",
-    },
-  ]);
+  // State - Initialize with centralized mock data
+  const [campaigns, setCampaigns] = useState<BulkCampaign[]>(getCampaigns());
+  const [templates] = useState<MessageTemplate[]>(getTemplates());
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);

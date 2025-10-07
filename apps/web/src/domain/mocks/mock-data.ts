@@ -66,6 +66,58 @@ export interface MockMetrics {
   totalClients: number;
 }
 
+// Campaign Types
+export type CampaignStatus =
+  | "draft"
+  | "scheduled"
+  | "running"
+  | "paused"
+  | "completed"
+  | "failed";
+
+export interface CampaignProgress {
+  total: number;
+  sent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  pending: number;
+}
+
+export interface MessageTemplate {
+  id: string;
+  name: string;
+  content: string;
+  variables: string[];
+  category: string;
+}
+
+export interface Recipient {
+  id: string;
+  phoneNumber: string;
+  name?: string;
+  status: MessageStatus;
+  sentAt?: Date;
+  deliveredAt?: Date;
+  readAt?: Date;
+}
+
+export interface BulkCampaign {
+  id: string;
+  name: string;
+  description?: string;
+  template: MessageTemplate;
+  clientId: string;
+  recipients: Recipient[];
+  status: CampaignStatus;
+  progress: CampaignProgress;
+  createdAt: Date;
+  scheduledAt?: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  estimatedDuration?: number;
+}
+
 // ============================================================================
 // MOCK DATA GENERATORS
 // ============================================================================
@@ -585,4 +637,191 @@ export function getActivitiesByClient(clientName: string): MockActivity[] {
   return mockActivities.filter(
     (activity) => activity.metadata?.clientName === clientName,
   );
+}
+
+// ============================================================================
+// MOCK TEMPLATES DATA
+// ============================================================================
+
+export const mockTemplates: MessageTemplate[] = [
+  {
+    id: "1",
+    name: "Welcome Message",
+    content: "Hi {name}, welcome to {company}! We're excited to have you.",
+    variables: ["name", "company"],
+    category: "Onboarding",
+  },
+  {
+    id: "2",
+    name: "Order Confirmation",
+    content:
+      "Hello {name}, your order #{orderNumber} has been confirmed. Expected delivery: {deliveryDate}",
+    variables: ["name", "orderNumber", "deliveryDate"],
+    category: "Marketing",
+  },
+  {
+    id: "3",
+    name: "Appointment Reminder",
+    content:
+      "Hi {name}, this is a reminder about your appointment on {date} at {time}. See you soon!",
+    variables: ["name", "date", "time"],
+    category: "Support",
+  },
+  {
+    id: "4",
+    name: "Product Launch",
+    content:
+      "Exciting news {name}! We just launched {product}. Check it out: {link}",
+    variables: ["name", "product", "link"],
+    category: "Marketing",
+  },
+  {
+    id: "5",
+    name: "Purchase Follow-up",
+    content: "Hi {name}, how are you enjoying {product}? Let us know!",
+    variables: ["name", "product"],
+    category: "Support",
+  },
+];
+
+// ============================================================================
+// MOCK CAMPAIGNS DATA
+// ============================================================================
+
+export const mockCampaigns: BulkCampaign[] = [
+  {
+    id: "1",
+    name: "Welcome Campaign",
+    description: "Onboarding new customers with personalized welcome messages",
+    template: mockTemplates[0],
+    clientId: "1",
+    recipients: Array.from({ length: 1000 }, (_, i) => ({
+      id: `r-${i + 1}`,
+      phoneNumber: `+1555${String(i + 1).padStart(7, "0")}`,
+      name: `Customer ${i + 1}`,
+      status: i < 750 ? "delivered" : i < 970 ? "sent" : "pending",
+      sentAt: i < 970 ? getRelativeTimestamp(120 - i * 0.1) : undefined,
+      deliveredAt: i < 750 ? getRelativeTimestamp(115 - i * 0.1) : undefined,
+      readAt: i < 680 ? getRelativeTimestamp(110 - i * 0.1) : undefined,
+    })),
+    status: "running",
+    progress: {
+      total: 1000,
+      sent: 970,
+      delivered: 750,
+      read: 680,
+      failed: 30,
+      pending: 30,
+    },
+    createdAt: getRelativeTimestamp(180),
+    startedAt: getRelativeTimestamp(120),
+    estimatedDuration: 45,
+  },
+  {
+    id: "2",
+    name: "Product Launch",
+    description: "Announcing our new product line to existing customers",
+    template: mockTemplates[3],
+    clientId: "2",
+    recipients: Array.from({ length: 500 }, (_, i) => ({
+      id: `r-${i + 1001}`,
+      phoneNumber: `+1556${String(i + 1).padStart(7, "0")}`,
+      name: `Customer ${i + 1001}`,
+      status: "pending",
+    })),
+    status: "scheduled",
+    progress: {
+      total: 500,
+      sent: 0,
+      delivered: 0,
+      read: 0,
+      failed: 0,
+      pending: 500,
+    },
+    createdAt: getRelativeTimestamp(60),
+    scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+    estimatedDuration: 25,
+  },
+  {
+    id: "3",
+    name: "Follow-up Campaign",
+    description: "Checking in with recent purchasers",
+    template: mockTemplates[4],
+    clientId: "1",
+    recipients: Array.from({ length: 250 }, (_, i) => ({
+      id: `r-${i + 1501}`,
+      phoneNumber: `+1557${String(i + 1).padStart(7, "0")}`,
+      name: `Customer ${i + 1501}`,
+      status: i < 245 ? "delivered" : "failed",
+      sentAt: getRelativeTimestamp(300 - i * 0.5),
+      deliveredAt: i < 245 ? getRelativeTimestamp(295 - i * 0.5) : undefined,
+      readAt: i < 230 ? getRelativeTimestamp(290 - i * 0.5) : undefined,
+    })),
+    status: "completed",
+    progress: {
+      total: 250,
+      sent: 250,
+      delivered: 245,
+      read: 230,
+      failed: 5,
+      pending: 0,
+    },
+    createdAt: getRelativeTimestamp(400),
+    startedAt: getRelativeTimestamp(320),
+    completedAt: getRelativeTimestamp(300),
+    estimatedDuration: 15,
+  },
+];
+
+// ============================================================================
+// CAMPAIGN DATA ACCESSORS
+// ============================================================================
+
+/**
+ * Get all mock campaigns
+ */
+export function getCampaigns(): BulkCampaign[] {
+  return mockCampaigns;
+}
+
+/**
+ * Get campaign by ID
+ */
+export function getCampaignById(id: string): BulkCampaign | undefined {
+  return mockCampaigns.find((campaign) => campaign.id === id);
+}
+
+/**
+ * Get campaigns by status
+ */
+export function getCampaignsByStatus(status: CampaignStatus): BulkCampaign[] {
+  return mockCampaigns.filter((campaign) => campaign.status === status);
+}
+
+/**
+ * Get campaigns by client ID
+ */
+export function getCampaignsByClient(clientId: string): BulkCampaign[] {
+  return mockCampaigns.filter((campaign) => campaign.clientId === clientId);
+}
+
+/**
+ * Get all message templates
+ */
+export function getTemplates(): MessageTemplate[] {
+  return mockTemplates;
+}
+
+/**
+ * Get template by ID
+ */
+export function getTemplateById(id: string): MessageTemplate | undefined {
+  return mockTemplates.find((template) => template.id === id);
+}
+
+/**
+ * Get templates by category
+ */
+export function getTemplatesByCategory(category: string): MessageTemplate[] {
+  return mockTemplates.filter((template) => template.category === category);
 }
