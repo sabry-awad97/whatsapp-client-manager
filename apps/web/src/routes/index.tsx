@@ -1,12 +1,7 @@
-import { ActivityFeed } from "@/components/activity-feed";
-import { LiveMetrics, type Metric } from "@/components/live-metrics";
+import type { Metric } from "@/components/live-metrics";
 import { DashboardSkeleton } from "@/components/loading-skeleton";
-import { MessageActivityChart } from "@/components/message-activity-chart";
 import { StatsOverview, type Stat } from "@/components/stats-overview";
-import {
-  StatusMonitor,
-  type ClientStatusItem,
-} from "@/components/status-monitor";
+import type { ClientStatusItem } from "@/components/status-monitor";
 import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +24,52 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
+import { lazy, Suspense, useCallback, useMemo } from "react";
+
+// ============================================================================
+// CODE SPLITTING - Lazy load heavy components
+// ============================================================================
+
+const LiveMetrics = lazy(() =>
+  import("@/components/live-metrics").then((mod) => ({
+    default: mod.LiveMetrics,
+  }))
+);
+
+const MessageActivityChart = lazy(() =>
+  import("@/components/message-activity-chart").then((mod) => ({
+    default: mod.MessageActivityChart,
+  }))
+);
+
+const StatusMonitor = lazy(() =>
+  import("@/components/status-monitor").then((mod) => ({
+    default: mod.StatusMonitor,
+  }))
+);
+
+const ActivityFeed = lazy(() =>
+  import("@/components/activity-feed").then((mod) => ({
+    default: mod.ActivityFeed,
+  }))
+);
+
+// Skeleton fallbacks for lazy components
+const MetricsSkeleton = () => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {Array.from({ length: 4 }).map((_, i) => (
+      <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
+    ))}
+  </div>
+);
+
+const ChartSkeleton = () => (
+  <div className="h-[400px] bg-muted animate-pulse rounded-lg" />
+);
+
+const MonitorSkeleton = () => (
+  <div className="h-[500px] bg-muted animate-pulse rounded-lg" />
+);
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
@@ -54,6 +95,10 @@ function HomeComponent() {
     isError: isErrorMetrics,
   } = useMetrics();
 
+  // ============================================================================
+  // MEMOIZATION - Optimize expensive calculations
+  // ============================================================================
+
   // Extract metrics with safe defaults
   const {
     connectedClients = 0,
@@ -63,53 +108,133 @@ function HomeComponent() {
     deliveryRate = 0,
   } = metrics || {};
 
-  const stats: Stat[] = [
-    {
-      label: "Active Clients",
-      value: connectedClients,
-      total: clients?.length || 0,
-      icon: Phone,
-      color: "text-success",
-      bgColor: "bg-success/10",
-      trend: connectedClients > 0 ? "up" : "neutral",
-      trendText: "+3",
-      trendLabel: "this week",
-    },
-    {
-      label: "Messages Sent",
-      value: totalSent.toLocaleString(),
-      icon: Send,
-      color: "text-info",
-      bgColor: "bg-info/10",
-      trend: "up",
-      trendText: "+24%",
-      trendLabel: "from yesterday",
-    },
-    {
-      label: "Delivered",
-      value: totalDelivered.toLocaleString(),
-      subtitle: `${deliveryRate}% rate`,
-      icon: CheckCircle2,
-      color: "text-success",
-      bgColor: "bg-success/10",
-      trend: deliveryRate >= 90 ? "up" : "neutral",
-    },
-    {
-      label: "Failed",
-      value: totalFailed.toLocaleString(),
-      icon: XCircle,
-      color: "text-destructive",
-      bgColor: "bg-destructive/10",
-      trend: totalFailed > 0 ? "down" : "neutral",
-    },
-  ];
+  // Memoize stats array - only recalculate when metrics change
+  const stats: Stat[] = useMemo(
+    () => [
+      {
+        label: "Active Clients",
+        value: connectedClients,
+        total: clients?.length || 0,
+        icon: Phone,
+        color: "text-success",
+        bgColor: "bg-success/10",
+        trend: connectedClients > 0 ? "up" : "neutral",
+        trendText: "+3",
+        trendLabel: "this week",
+      },
+      {
+        label: "Messages Sent",
+        value: totalSent.toLocaleString(),
+        icon: Send,
+        color: "text-info",
+        bgColor: "bg-info/10",
+        trend: "up",
+        trendText: "+24%",
+        trendLabel: "from yesterday",
+      },
+      {
+        label: "Delivered",
+        value: totalDelivered.toLocaleString(),
+        subtitle: `${deliveryRate}% rate`,
+        icon: CheckCircle2,
+        color: "text-success",
+        bgColor: "bg-success/10",
+        trend: deliveryRate >= 90 ? "up" : "neutral",
+      },
+      {
+        label: "Failed",
+        value: totalFailed.toLocaleString(),
+        icon: XCircle,
+        color: "text-destructive",
+        bgColor: "bg-destructive/10",
+        trend: totalFailed > 0 ? "down" : "neutral",
+      },
+    ],
+    [
+      connectedClients,
+      totalSent,
+      totalDelivered,
+      totalFailed,
+      deliveryRate,
+      clients,
+    ]
+  );
 
   const { data, isLoading, isError, refetch } = useQuery(
     trpc.healthCheck.queryOptions(undefined, {
       refetchInterval: 30000,
       retry: false,
-    }),
+    })
   );
+
+  // Memoize live metrics - only recalculate when dependencies change
+  const liveMetrics: Metric[] = useMemo(
+    () => [
+      {
+        label: "Messages/Hour",
+        value: "342",
+        change: 15.3,
+        changeLabel: "vs last hour",
+        icon: Zap,
+        color: "text-info",
+        bgColor: "bg-info/10",
+        chartData: generateChartData(20, "up"),
+        chartType: "area",
+      },
+      {
+        label: "Active Users",
+        value: connectedClients,
+        change: 12.5,
+        changeLabel: "this week",
+        icon: Users,
+        color: "text-success",
+        bgColor: "bg-success/10",
+        chartData: generateChartData(20, "up"),
+        chartType: "line",
+      },
+      {
+        label: "Success Rate",
+        value: `${deliveryRate}%`,
+        change: 2.1,
+        changeLabel: "improvement",
+        icon: TrendingUp,
+        color: "text-chart-1",
+        bgColor: "bg-chart-1/10",
+        chartData: generateChartData(20, "stable"),
+        chartType: "area",
+      },
+      {
+        label: "Avg Response Time",
+        value: "1.2s",
+        change: -8.4,
+        changeLabel: "faster",
+        icon: Zap,
+        color: "text-warning",
+        bgColor: "bg-warning/10",
+        chartData: generateChartData(20, "down"),
+        chartType: "line",
+      },
+    ],
+    [connectedClients, deliveryRate]
+  );
+
+  // Memoize client status items - only recalculate when clients change
+  const clientStatusItems: ClientStatusItem[] = useMemo(
+    () =>
+      (clients || []).map((client) => ({
+        id: client.id,
+        name: client.name,
+        phoneNumber: client.phoneNumber,
+        status: client.status,
+        lastConnected: client.lastConnected,
+      })),
+    [clients]
+  );
+
+  // Memoize event handlers to prevent unnecessary re-renders
+  const handleClientClick = useCallback((client: ClientStatusItem) => {
+    console.log("Client clicked:", client);
+  }, []);
 
   // Show skeleton while fetching initial data
   if (
@@ -148,65 +273,6 @@ function HomeComponent() {
   if (!data) {
     return null;
   }
-
-  // Prepare data for LiveMetrics
-  const liveMetrics: Metric[] = [
-    {
-      label: "Messages/Hour",
-      value: "342",
-      change: 15.3,
-      changeLabel: "vs last hour",
-      icon: Zap,
-      color: "text-info",
-      bgColor: "bg-info/10",
-      chartData: generateChartData(20, "up"),
-      chartType: "area",
-    },
-    {
-      label: "Active Users",
-      value: connectedClients,
-      change: 12.5,
-      changeLabel: "this week",
-      icon: Users,
-      color: "text-success",
-      bgColor: "bg-success/10",
-      chartData: generateChartData(20, "up"),
-      chartType: "line",
-    },
-    {
-      label: "Success Rate",
-      value: `${deliveryRate}%`,
-      change: 2.1,
-      changeLabel: "improvement",
-      icon: TrendingUp,
-      color: "text-chart-1",
-      bgColor: "bg-chart-1/10",
-      chartData: generateChartData(20, "stable"),
-      chartType: "area",
-    },
-    {
-      label: "Avg Response Time",
-      value: "1.2s",
-      change: -8.4,
-      changeLabel: "faster",
-      icon: Zap,
-      color: "text-warning",
-      bgColor: "bg-warning/10",
-      chartData: generateChartData(20, "down"),
-      chartType: "line",
-    },
-  ];
-
-  // Prepare data for StatusMonitor
-  const clientStatusItems: ClientStatusItem[] = (clients || []).map(
-    (client) => ({
-      id: client.id,
-      name: client.name,
-      phoneNumber: client.phoneNumber,
-      status: client.status,
-      lastConnected: client.lastConnected,
-    }),
-  );
 
   return (
     <div className="flex flex-col gap-0">
@@ -260,7 +326,9 @@ function HomeComponent() {
               Real-time performance tracking with trend analysis
             </p>
           </div>
-          <LiveMetrics metrics={liveMetrics} columns={4} />
+          <Suspense fallback={<MetricsSkeleton />}>
+            <LiveMetrics metrics={liveMetrics} columns={4} />
+          </Suspense>
         </section>
 
         {/* Bottom Section: Activity & Monitoring */}
@@ -276,19 +344,23 @@ function HomeComponent() {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             {/* Left Column: Chart and Status */}
             <div className="xl:col-span-2 space-y-4">
-              <MessageActivityChart
-                totalSent={totalSent}
-                totalDelivered={totalDelivered}
-              />
-              <StatusMonitor
-                clients={clientStatusItems}
-                onClientClick={(client) => {
-                  console.log("Client clicked:", client);
-                }}
-              />
+              <Suspense fallback={<ChartSkeleton />}>
+                <MessageActivityChart
+                  totalSent={totalSent}
+                  totalDelivered={totalDelivered}
+                />
+              </Suspense>
+              <Suspense fallback={<MonitorSkeleton />}>
+                <StatusMonitor
+                  clients={clientStatusItems}
+                  onClientClick={handleClientClick}
+                />
+              </Suspense>
             </div>
             {/* Right Column: Activity Feed */}
-            <ActivityFeed activities={activities || []} />
+            <Suspense fallback={<MonitorSkeleton />}>
+              <ActivityFeed activities={activities || []} />
+            </Suspense>
           </div>
         </section>
       </div>
