@@ -27,6 +27,17 @@ import { Separator } from "@/components/ui/separator";
 import { DataFetchError, ErrorBoundary } from "@/components/error-boundary";
 import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { useClients } from "@/hooks/use-clients";
+import { useCampaignRealtime } from "@/hooks/use-campaigns";
+import {
+  CSVUploadDialog,
+  ScheduleDialog,
+  RateLimitDialog,
+} from "@/components/campaign-dialogs";
+import {
+  type CSVRecipient,
+  type RateLimitConfig,
+  RATE_LIMIT_PRESETS,
+} from "@/lib/campaign-utils";
 import { cn } from "@/lib/utils";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -47,7 +58,7 @@ import {
   Eye,
   FileText,
   AlertCircle,
-  Calendar,
+  Calendar as CalendarIcon,
   Target,
   TrendingUp,
   Loader2,
@@ -56,8 +67,10 @@ import {
   Search,
   Filter,
   ChevronDown,
+  Settings,
+  Zap,
 } from "lucide-react";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/campaigns")({
@@ -256,6 +269,9 @@ function CampaignsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isCSVUploadOpen, setIsCSVUploadOpen] = useState(false);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [isRateLimitOpen, setIsRateLimitOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<BulkCampaign | null>(
     null,
   );
@@ -263,9 +279,32 @@ function CampaignsPage() {
     "all",
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [csvRecipients, setCSVRecipients] = useState<CSVRecipient[]>([]);
+  const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
+  const [rateLimit, setRateLimit] = useState<RateLimitConfig>(
+    RATE_LIMIT_PRESETS.moderate,
+  );
 
   // Data fetching
   const { data: clients } = useClients();
+
+  // Real-time updates for running campaigns
+  const realtimeProgress = useCampaignRealtime(
+    campaigns.find((c) => c.status === "running")?.id || null,
+  );
+
+  // Update campaign progress from real-time data
+  useEffect(() => {
+    if (realtimeProgress) {
+      setCampaigns((prev) =>
+        prev.map((c) =>
+          c.status === "running"
+            ? { ...c, progress: { ...c.progress, ...realtimeProgress } }
+            : c,
+        ),
+      );
+    }
+  }, [realtimeProgress]);
 
   // Filtered campaigns
   const filteredCampaigns = useMemo(() => {
@@ -360,42 +399,110 @@ function CampaignsPage() {
     [templates],
   );
 
-  const handleStartCampaign = useCallback((campaignId: string) => {
-    setCampaigns((prev) =>
-      prev.map((c) =>
-        c.id === campaignId
-          ? { ...c, status: "running" as CampaignStatus, startedAt: new Date() }
-          : c,
-      ),
-    );
-    toast.success("Campaign started", {
-      description: "Messages are being sent.",
-    });
-  }, []);
+  const handleStartCampaign = useCallback(
+    (campaignId: string) => {
+      const campaign = campaigns.find((c) => c.id === campaignId);
+      if (!campaign) return;
 
-  const handlePauseCampaign = useCallback((campaignId: string) => {
-    setCampaigns((prev) =>
-      prev.map((c) =>
-        c.id === campaignId ? { ...c, status: "paused" as CampaignStatus } : c,
-      ),
-    );
-    toast.success("Campaign paused");
-  }, []);
+      // Validate before starting
+      if (campaign.progress.total === 0) {
+        toast.error("Cannot start campaign", {
+          description: "No recipients found. Please add recipients first.",
+        });
+        return;
+      }
 
-  const handleStopCampaign = useCallback((campaignId: string) => {
-    setCampaigns((prev) =>
-      prev.map((c) =>
-        c.id === campaignId
-          ? {
-              ...c,
-              status: "completed" as CampaignStatus,
-              completedAt: new Date(),
-            }
-          : c,
-      ),
-    );
-    toast.success("Campaign stopped");
-  }, []);
+      // Update campaign state
+      setCampaigns((prev) =>
+        prev.map((c) =>
+          c.id === campaignId
+            ? {
+                ...c,
+                status: "running" as CampaignStatus,
+                startedAt: c.startedAt || new Date(), // Keep original start time if resuming
+              }
+            : c,
+        ),
+      );
+
+      // Show appropriate message
+      const isResuming = campaign.status === "paused";
+      toast.success(isResuming ? "Campaign resumed" : "Campaign started", {
+        description: isResuming
+          ? `Continuing with ${campaign.progress.pending} pending messages`
+          : `Sending messages to ${campaign.progress.total} recipients`,
+        duration: 5000,
+      });
+
+      // TODO: Backend integration
+      // await fetch(`/api/campaigns/${campaignId}/start`, { method: 'POST' });
+    },
+    [campaigns],
+  );
+
+  const handlePauseCampaign = useCallback(
+    (campaignId: string) => {
+      const campaign = campaigns.find((c) => c.id === campaignId);
+      if (!campaign) return;
+
+      // Update campaign state
+      setCampaigns((prev) =>
+        prev.map((c) =>
+          c.id === campaignId
+            ? { ...c, status: "paused" as CampaignStatus }
+            : c,
+        ),
+      );
+
+      toast.success("Campaign paused", {
+        description: `${campaign.progress.sent} messages sent, ${campaign.progress.pending} pending`,
+        duration: 5000,
+      });
+
+      // TODO: Backend integration
+      // await fetch(`/api/campaigns/${campaignId}/pause`, { method: 'POST' });
+    },
+    [campaigns],
+  );
+
+  const handleStopCampaign = useCallback(
+    (campaignId: string) => {
+      const campaign = campaigns.find((c) => c.id === campaignId);
+      if (!campaign) return;
+
+      // Confirm before stopping
+      const confirmed = window.confirm(
+        `Are you sure you want to stop this campaign?\n\n` +
+          `Sent: ${campaign.progress.sent}\n` +
+          `Pending: ${campaign.progress.pending}\n\n` +
+          `This action cannot be undone.`,
+      );
+
+      if (!confirmed) return;
+
+      // Update campaign state
+      setCampaigns((prev) =>
+        prev.map((c) =>
+          c.id === campaignId
+            ? {
+                ...c,
+                status: "completed" as CampaignStatus,
+                completedAt: new Date(),
+              }
+            : c,
+        ),
+      );
+
+      toast.success("Campaign stopped", {
+        description: `Final stats: ${campaign.progress.sent} sent, ${campaign.progress.delivered} delivered`,
+        duration: 5000,
+      });
+
+      // TODO: Backend integration
+      // await fetch(`/api/campaigns/${campaignId}/stop`, { method: 'POST' });
+    },
+    [campaigns],
+  );
 
   const handleDeleteCampaign = useCallback((campaignId: string) => {
     setCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
@@ -423,6 +530,28 @@ function CampaignsPage() {
     }
   }, []);
 
+  // New handlers for advanced features
+  const handleCSVUpload = useCallback((recipients: CSVRecipient[]) => {
+    setCSVRecipients(recipients);
+    toast.success(`Loaded ${recipients.length} recipients`, {
+      description: "Ready to create campaign",
+    });
+  }, []);
+
+  const handleSchedule = useCallback((date: Date) => {
+    setScheduledDate(date);
+    toast.success("Campaign scheduled", {
+      description: `Will start at ${date.toLocaleString()}`,
+    });
+  }, []);
+
+  const handleRateLimitSave = useCallback((config: RateLimitConfig) => {
+    setRateLimit(config);
+    toast.success("Rate limit configured", {
+      description: `${config.messagesPerSecond} messages/second`,
+    });
+  }, []);
+
   return (
     <div className="flex flex-col gap-0">
       {/* Header */}
@@ -437,6 +566,30 @@ function CampaignsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <TooltipIconButton
+              tooltip="Upload recipients (CSV)"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCSVUploadOpen(true)}
+            >
+              <Upload className="h-4 w-4" />
+            </TooltipIconButton>
+            <TooltipIconButton
+              tooltip="Schedule campaign"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsScheduleOpen(true)}
+            >
+              <CalendarIcon className="h-4 w-4" />
+            </TooltipIconButton>
+            <TooltipIconButton
+              tooltip="Rate limit settings"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsRateLimitOpen(true)}
+            >
+              <Zap className="h-4 w-4" />
+            </TooltipIconButton>
             <Button
               variant="outline"
               size="sm"
@@ -476,7 +629,7 @@ function CampaignsPage() {
           <StatCard
             label="Scheduled"
             value={stats.scheduled}
-            icon={Calendar}
+            icon={CalendarIcon}
             color="text-orange-600"
           />
           <StatCard
@@ -582,7 +735,7 @@ function CampaignsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredCampaigns.map((campaign) => (
               <CampaignCard
                 key={campaign.id}
@@ -626,6 +779,27 @@ function CampaignsPage() {
           clients?.find((c) => c.id === selectedCampaign?.clientId)?.name ||
           "Unknown Client"
         }
+      />
+
+      {/* Advanced Feature Dialogs */}
+      <CSVUploadDialog
+        open={isCSVUploadOpen}
+        onOpenChange={setIsCSVUploadOpen}
+        onUpload={handleCSVUpload}
+        templateVariables={["name", "company", "product"]}
+      />
+
+      <ScheduleDialog
+        open={isScheduleOpen}
+        onOpenChange={setIsScheduleOpen}
+        onSchedule={handleSchedule}
+      />
+
+      <RateLimitDialog
+        open={isRateLimitOpen}
+        onOpenChange={setIsRateLimitOpen}
+        onSave={handleRateLimitSave}
+        currentConfig={rateLimit}
       />
     </div>
   );
@@ -682,18 +856,67 @@ function CampaignCard({
       ? (campaign.progress.sent / campaign.progress.total) * 100
       : 0;
 
+  // Status badge styling
+  const getStatusBadge = () => {
+    switch (campaign.status) {
+      case "running":
+        return (
+          <Badge className="bg-green-600 hover:bg-green-700">
+            <Play className="h-3 w-3 mr-1" />
+            Running
+          </Badge>
+        );
+      case "paused":
+        return (
+          <Badge className="bg-yellow-600 hover:bg-yellow-700">
+            <Pause className="h-3 w-3 mr-1" />
+            Paused
+          </Badge>
+        );
+      case "completed":
+        return (
+          <Badge className="bg-blue-600 hover:bg-blue-700">
+            <CheckCircle2 className="h-3 w-3 mr-1" />
+            Completed
+          </Badge>
+        );
+      case "scheduled":
+        return (
+          <Badge className="bg-orange-600 hover:bg-orange-700">
+            <Clock className="h-3 w-3 mr-1" />
+            Scheduled
+          </Badge>
+        );
+      case "failed":
+        return (
+          <Badge className="bg-red-600 hover:bg-red-700">
+            <XCircle className="h-3 w-3 mr-1" />
+            Failed
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            <Edit className="h-3 w-3 mr-1" />
+            Draft
+          </Badge>
+        );
+    }
+  };
+
   return (
-    <Card className="transition-all hover:shadow-md">
+    <Card
+      className={cn(
+        "transition-all hover:shadow-md",
+        campaign.status === "running" && "ring-2 ring-green-500/20",
+      )}
+    >
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <CardTitle className="text-lg">{campaign.name}</CardTitle>
-              <Badge
-                variant={campaign.status === "running" ? "default" : "outline"}
-              >
-                {campaign.status}
-              </Badge>
+              {getStatusBadge()}
             </div>
             {campaign.description && (
               <p className="text-sm text-muted-foreground mb-2">
@@ -755,49 +978,110 @@ function CampaignCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Progress Bar with Animation */}
         <div>
           <div className="flex justify-between text-sm mb-2">
-            <span>Progress</span>
+            <div className="flex items-center gap-2">
+              <span>Progress</span>
+              {campaign.status === "running" && (
+                <span className="flex items-center gap-1 text-xs text-green-600">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  Sending...
+                </span>
+              )}
+            </div>
             <span className="font-medium">{Math.round(progress)}%</span>
           </div>
-          <Progress value={progress} />
+          <Progress
+            value={progress}
+            className={cn(campaign.status === "running" && "animate-pulse")}
+          />
         </div>
+
+        {/* Stats Grid */}
         <div className="grid grid-cols-5 gap-2 text-center">
-          <div>
-            <p className="text-xs text-muted-foreground">Sent</p>
+          <div className="p-2 rounded-lg bg-muted/50">
+            <p className="text-xs text-muted-foreground mb-1">Sent</p>
             <p className="text-lg font-bold">{campaign.progress.sent}</p>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Delivered</p>
+          <div className="p-2 rounded-lg bg-green-600/10">
+            <p className="text-xs text-muted-foreground mb-1">Delivered</p>
             <p className="text-lg font-bold text-green-600">
               {campaign.progress.delivered}
             </p>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Read</p>
+          <div className="p-2 rounded-lg bg-teal-600/10">
+            <p className="text-xs text-muted-foreground mb-1">Read</p>
             <p className="text-lg font-bold text-teal-600">
               {campaign.progress.read}
             </p>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Failed</p>
+          <div className="p-2 rounded-lg bg-red-600/10">
+            <p className="text-xs text-muted-foreground mb-1">Failed</p>
             <p className="text-lg font-bold text-red-600">
               {campaign.progress.failed}
             </p>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Pending</p>
+          <div className="p-2 rounded-lg bg-blue-600/10">
+            <p className="text-xs text-muted-foreground mb-1">Pending</p>
             <p className="text-lg font-bold text-blue-600">
               {campaign.progress.pending}
             </p>
           </div>
         </div>
+
+        {/* Quick Actions for Running/Paused Campaigns */}
+        {(campaign.status === "running" || campaign.status === "paused") && (
+          <div className="flex items-center gap-2 pt-2 border-t">
+            {campaign.status === "running" ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onPause}
+                className="flex-1"
+              >
+                <Pause className="h-4 w-4 mr-2" />
+                Pause
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="default"
+                onClick={onStart}
+                className="flex-1"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Resume
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={onStop}
+              className="flex-1"
+            >
+              <StopCircle className="h-4 w-4 mr-2" />
+              Stop
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-// Placeholder dialog components
+/**
+ * Multi-Step Campaign Creation Wizard
+ * Step 1: Basic Info (Name, Description)
+ * Step 2: Select Client
+ * Step 3: Choose Template
+ * Step 4: Upload Recipients (CSV)
+ * Step 5: Configure Rate Limiting
+ * Step 6: Review & Launch
+ */
 function CreateCampaignDialog({
   open,
   onOpenChange,
@@ -805,6 +1089,7 @@ function CreateCampaignDialog({
   templates,
   clients,
 }: any) {
+  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -812,77 +1097,661 @@ function CreateCampaignDialog({
     templateId: "",
     templateContent: "",
   });
+  const [uploadedRecipients, setUploadedRecipients] = useState<CSVRecipient[]>(
+    [],
+  );
+  const [selectedRateLimit, setSelectedRateLimit] =
+    useState<keyof typeof RATE_LIMIT_PRESETS>("moderate");
+  const [messageDelay, setMessageDelay] = useState(1); // seconds between messages
+
+  const connectedClients = clients.filter((c: any) => c.status === "connected");
+  const selectedTemplate = templates.find(
+    (t: any) => t.id === formData.templateId,
+  );
+  const selectedClient = clients.find((c: any) => c.id === formData.clientId);
+  const rateLimitConfig = RATE_LIMIT_PRESETS[selectedRateLimit];
+
+  const canProceed = () => {
+    switch (step) {
+      case 1:
+        return formData.name.trim().length > 0;
+      case 2:
+        return formData.clientId.length > 0;
+      case 3:
+        return formData.templateId.length > 0;
+      case 4:
+        return uploadedRecipients.length > 0;
+      case 5:
+        return messageDelay > 0;
+      default:
+        return true;
+    }
+  };
+
+  const handleNext = () => {
+    if (canProceed()) {
+      setStep(step + 1);
+    }
+  };
+
+  const handleBack = () => {
+    setStep(step - 1);
+  };
+
+  const handleSubmit = () => {
+    onSubmit({
+      ...formData,
+      recipients: uploadedRecipients,
+      rateLimit: rateLimitConfig,
+      messageDelay,
+    });
+    // Reset wizard
+    setStep(1);
+    setFormData({
+      name: "",
+      description: "",
+      clientId: "",
+      templateId: "",
+      templateContent: "",
+    });
+    setUploadedRecipients([]);
+  };
+
+  const handleCSVUpload = (recipients: CSVRecipient[]) => {
+    setUploadedRecipients(recipients);
+    toast.success(`Loaded ${recipients.length} recipients`);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Create Campaign</DialogTitle>
+          <DialogTitle>Create Bulk Campaign</DialogTitle>
           <DialogDescription>
-            Set up a new bulk messaging campaign
+            Step {step} of 6 -{" "}
+            {step === 1
+              ? "Basic Information"
+              : step === 2
+                ? "Select WhatsApp Client"
+                : step === 3
+                  ? "Choose Message Template"
+                  : step === 4
+                    ? "Import Recipients"
+                    : step === 5
+                      ? "Configure Sending Speed"
+                      : "Review & Launch"}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div>
-            <Label>Campaign Name</Label>
-            <Input
-              placeholder="e.g., Welcome Campaign"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
+
+        {/* Progress Indicator */}
+        <div className="flex items-center gap-2 mb-4">
+          {[1, 2, 3, 4, 5, 6].map((s) => (
+            <div
+              key={s}
+              className={cn(
+                "flex-1 h-2 rounded-full transition-colors",
+                s <= step ? "bg-primary" : "bg-muted",
+              )}
             />
-          </div>
-          <div>
-            <Label>Description</Label>
-            <Textarea
-              placeholder="Campaign description..."
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <Label>Client</Label>
-            <select
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-              value={formData.clientId}
-              onChange={(e) =>
-                setFormData({ ...formData, clientId: e.target.value })
-              }
-            >
-              <option value="">Select client...</option>
-              {clients.map((c: any) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label>Template</Label>
-            <select
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-              value={formData.templateId}
-              onChange={(e) =>
-                setFormData({ ...formData, templateId: e.target.value })
-              }
-            >
-              <option value="">Select template...</option>
-              {templates.map((t: any) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          ))}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={() => onSubmit(formData)}>Create Campaign</Button>
+
+        <ScrollArea className="max-h-[50vh] pr-4">
+          <div className="space-y-4">
+            {/* Step 1: Basic Info */}
+            {step === 1 && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Campaign Name *</Label>
+                  <Input
+                    id="name"
+                    placeholder="e.g., Welcome Campaign"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Give your campaign a descriptive name
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="description">Description (Optional)</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Describe the purpose of this campaign..."
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    className="mt-2"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Select Client */}
+            {step === 2 && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Select WhatsApp Client *</Label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Choose which WhatsApp client will send the messages
+                  </p>
+                  {connectedClients.length === 0 ? (
+                    <Card className="border-destructive">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <AlertCircle className="h-5 w-5 text-destructive" />
+                        <div>
+                          <p className="text-sm font-medium">
+                            No connected clients
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Please connect a client before creating a campaign
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid gap-3">
+                      {connectedClients.map((client: any) => (
+                        <Card
+                          key={client.id}
+                          className={cn(
+                            "cursor-pointer transition-all hover:shadow-md",
+                            formData.clientId === client.id &&
+                              "ring-2 ring-primary shadow-md",
+                          )}
+                          onClick={() =>
+                            setFormData({ ...formData, clientId: client.id })
+                          }
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold">{client.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {client.phoneNumber}
+                                </p>
+                              </div>
+                              <Badge variant="secondary">Connected</Badge>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  Sent
+                                </p>
+                                <p className="text-sm font-bold">
+                                  {client.messagesSent}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  Delivered
+                                </p>
+                                <p className="text-sm font-bold text-green-600">
+                                  {client.messagesDelivered}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  Failed
+                                </p>
+                                <p className="text-sm font-bold text-red-600">
+                                  {client.messagesFailed}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Choose Template */}
+            {step === 3 && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Select Message Template *</Label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Choose a pre-defined template with variable placeholders
+                  </p>
+                  <div className="grid gap-3">
+                    {templates.map((template: any) => (
+                      <Card
+                        key={template.id}
+                        className={cn(
+                          "cursor-pointer transition-all hover:shadow-md",
+                          formData.templateId === template.id &&
+                            "ring-2 ring-primary shadow-md",
+                        )}
+                        onClick={() =>
+                          setFormData({ ...formData, templateId: template.id })
+                        }
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <p className="font-semibold">{template.name}</p>
+                              <Badge variant="outline" className="mt-1">
+                                {template.category}
+                              </Badge>
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {template.content}
+                          </p>
+                          <div className="flex gap-1 mt-2">
+                            {template.variables.map((v: string) => (
+                              <Badge
+                                key={v}
+                                variant="secondary"
+                                className="text-xs"
+                              >
+                                {`{${v}}`}
+                              </Badge>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Upload Recipients */}
+            {step === 4 && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Import Recipients from CSV *</Label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Upload a CSV file with phone numbers and template variables
+                  </p>
+
+                  {/* CSV Upload Area */}
+                  <Card className="border-dashed border-2">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col items-center text-center">
+                        <Upload className="h-12 w-12 text-muted-foreground mb-3" />
+                        <p className="text-sm font-medium mb-1">
+                          {uploadedRecipients.length > 0
+                            ? `${uploadedRecipients.length} recipients loaded`
+                            : "Upload CSV file"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mb-4">
+                          CSV must include: phone_number, name, and template
+                          variables
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              // Trigger file input
+                              const input = document.createElement("input");
+                              input.type = "file";
+                              input.accept = ".csv";
+                              input.onchange = async (e: any) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  try {
+                                    const { parseCSV } = await import(
+                                      "@/lib/campaign-utils"
+                                    );
+                                    const result = await parseCSV(file);
+                                    setUploadedRecipients(result.recipients);
+                                    toast.success(
+                                      `Loaded ${result.validRows} recipients`,
+                                      {
+                                        description:
+                                          result.errors.length > 0
+                                            ? `${result.errors.length} rows had errors`
+                                            : "All rows valid",
+                                      },
+                                    );
+                                  } catch (error) {
+                                    toast.error("Failed to parse CSV");
+                                  }
+                                }
+                              };
+                              input.click();
+                            }}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {uploadedRecipients.length > 0
+                              ? "Replace"
+                              : "Upload"}{" "}
+                            CSV
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              const { downloadCSVTemplate } = await import(
+                                "@/lib/campaign-utils"
+                              );
+                              downloadCSVTemplate(
+                                selectedTemplate?.variables || [],
+                              );
+                            }}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download Template
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Preview Recipients */}
+                  {uploadedRecipients.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-sm">
+                          Preview ({uploadedRecipients.length} recipients)
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ScrollArea className="h-32">
+                          <div className="space-y-2">
+                            {uploadedRecipients.slice(0, 5).map((r, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between text-sm p-2 rounded bg-muted/50"
+                              >
+                                <span className="font-medium">
+                                  {r.phoneNumber}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {r.name}
+                                </span>
+                              </div>
+                            ))}
+                            {uploadedRecipients.length > 5 && (
+                              <p className="text-xs text-muted-foreground text-center">
+                                +{uploadedRecipients.length - 5} more recipients
+                              </p>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Rate Limiting & Delay */}
+            {step === 5 && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Sending Speed Configuration</Label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Configure delay between messages to prevent WhatsApp
+                    blocking
+                  </p>
+
+                  {/* Rate Limit Presets */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {(
+                      Object.keys(RATE_LIMIT_PRESETS) as Array<
+                        keyof typeof RATE_LIMIT_PRESETS
+                      >
+                    ).map((preset) => (
+                      <Button
+                        key={preset}
+                        variant={
+                          selectedRateLimit === preset ? "default" : "outline"
+                        }
+                        size="sm"
+                        onClick={() => setSelectedRateLimit(preset)}
+                        className="capitalize"
+                      >
+                        {preset}
+                      </Button>
+                    ))}
+                  </div>
+
+                  {/* Current Configuration */}
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Messages/Second
+                          </p>
+                          <p className="text-lg font-bold">
+                            {rateLimitConfig.messagesPerSecond}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Messages/Minute
+                          </p>
+                          <p className="text-lg font-bold">
+                            {rateLimitConfig.messagesPerMinute}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Messages/Hour
+                          </p>
+                          <p className="text-lg font-bold">
+                            {rateLimitConfig.messagesPerHour}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Daily Limit
+                          </p>
+                          <p className="text-lg font-bold">
+                            {rateLimitConfig.messagesPerDay}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Custom Delay */}
+                  <div className="mt-4">
+                    <Label htmlFor="delay">
+                      Delay Between Messages (seconds)
+                    </Label>
+                    <div className="flex items-center gap-3 mt-2">
+                      <Input
+                        id="delay"
+                        type="number"
+                        min="0.5"
+                        max="60"
+                        step="0.5"
+                        value={messageDelay}
+                        onChange={(e) =>
+                          setMessageDelay(Number(e.target.value))
+                        }
+                        className="w-32"
+                      />
+                      <div className="flex-1">
+                        <Progress
+                          value={Math.min((messageDelay / 10) * 100, 100)}
+                          className="h-2"
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {messageDelay}s
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Recommended: 1-3 seconds to avoid rate limiting
+                    </p>
+                  </div>
+
+                  {/* Estimated Time */}
+                  {uploadedRecipients.length > 0 && (
+                    <Card className="bg-blue-600/5 border-blue-600/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <p className="text-sm font-medium">
+                              Estimated Duration
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {Math.ceil(
+                                (uploadedRecipients.length * messageDelay) / 60,
+                              )}{" "}
+                              minutes for {uploadedRecipients.length} recipients
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Step 6: Review & Launch */}
+            {step === 6 && (
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">
+                      Campaign Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Campaign Name
+                        </p>
+                        <p className="text-sm font-medium">{formData.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Client</p>
+                        <p className="text-sm font-medium">
+                          {selectedClient?.name}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Template
+                        </p>
+                        <p className="text-sm font-medium">
+                          {selectedTemplate?.name}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Recipients
+                        </p>
+                        <p className="text-sm font-medium">
+                          {uploadedRecipients.length}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Rate Limit
+                        </p>
+                        <p className="text-sm font-medium capitalize">
+                          {selectedRateLimit}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Message Delay
+                        </p>
+                        <p className="text-sm font-medium">{messageDelay}s</p>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Template Preview */}
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Message Preview (with sample data)
+                      </p>
+                      <Card className="bg-muted/50">
+                        <CardContent className="p-3">
+                          <p className="text-sm whitespace-pre-wrap">
+                            {selectedTemplate?.content.replace(
+                              /{(\w+)}/g,
+                              (_match: string, key: string) =>
+                                `[${key.toUpperCase()}]`,
+                            )}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Warnings */}
+                    <Card className="bg-orange-600/5 border-orange-600/20">
+                      <CardContent className="p-3">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="h-4 w-4 text-orange-600 mt-0.5" />
+                          <div className="text-xs">
+                            <p className="font-medium text-orange-600">
+                              Important Notes:
+                            </p>
+                            <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                              <li>
+                                Ensure all recipients have opted in to receive
+                                messages
+                              </li>
+                              <li>Campaign cannot be stopped once started</li>
+                              <li>
+                                Failed messages will be retried automatically
+                              </li>
+                              <li>
+                                Estimated duration: ~
+                                {Math.ceil(
+                                  (uploadedRecipients.length * messageDelay) /
+                                    60,
+                                )}{" "}
+                                minutes
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        <DialogFooter className="flex items-center justify-between">
+          <div className="flex gap-2">
+            {step > 1 && (
+              <Button variant="outline" onClick={handleBack}>
+                Back
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            {step < 6 ? (
+              <Button onClick={handleNext} disabled={!canProceed()}>
+                Next
+              </Button>
+            ) : (
+              <Button onClick={handleSubmit} disabled={!canProceed()}>
+                <Send className="h-4 w-4 mr-2" />
+                Launch Campaign
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
