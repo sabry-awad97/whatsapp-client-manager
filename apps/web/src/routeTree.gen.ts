@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TestDbRouteImport } from './routes/test-db'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TestDbRoute = TestDbRouteImport.update({
+  id: '/test-db',
+  path: '/test-db',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MessagesRoute = MessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/campaigns': typeof CampaignsRoute
   '/clients': typeof ClientsRoute
   '/messages': typeof MessagesRoute
+  '/test-db': typeof TestDbRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/campaigns': typeof CampaignsRoute
   '/clients': typeof ClientsRoute
   '/messages': typeof MessagesRoute
+  '/test-db': typeof TestDbRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/campaigns': typeof CampaignsRoute
   '/clients': typeof ClientsRoute
   '/messages': typeof MessagesRoute
+  '/test-db': typeof TestDbRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/campaigns' | '/clients' | '/messages'
+  fullPaths: '/' | '/campaigns' | '/clients' | '/messages' | '/test-db'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/campaigns' | '/clients' | '/messages'
-  id: '__root__' | '/' | '/campaigns' | '/clients' | '/messages'
+  to: '/' | '/campaigns' | '/clients' | '/messages' | '/test-db'
+  id: '__root__' | '/' | '/campaigns' | '/clients' | '/messages' | '/test-db'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,10 +76,18 @@ export interface RootRouteChildren {
   CampaignsRoute: typeof CampaignsRoute
   ClientsRoute: typeof ClientsRoute
   MessagesRoute: typeof MessagesRoute
+  TestDbRoute: typeof TestDbRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/test-db': {
+      id: '/test-db'
+      path: '/test-db'
+      fullPath: '/test-db'
+      preLoaderRoute: typeof TestDbRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/messages': {
       id: '/messages'
       path: '/messages'
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   CampaignsRoute: CampaignsRoute,
   ClientsRoute: ClientsRoute,
   MessagesRoute: MessagesRoute,
+  TestDbRoute: TestDbRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

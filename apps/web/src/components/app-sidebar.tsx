@@ -16,6 +16,7 @@ import {
   Settings,
   UserCircle,
   Users,
+  Database,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -27,6 +28,13 @@ const navigation = [
 
   { name: "Users", href: "/users", icon: Users, group: "Management" },
   { name: "Settings", href: "/settings", icon: Settings, group: "Management" },
+
+  {
+    name: "TanStack DB Test",
+    href: "/test-db",
+    icon: Database,
+    group: "Development",
+  },
 ];
 
 export function AppSidebar() {
