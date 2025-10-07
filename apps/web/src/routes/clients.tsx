@@ -1,3 +1,5 @@
+import { DataFetchError, ErrorBoundary } from "@/components/error-boundary";
+import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,11 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DataFetchError, ErrorBoundary } from "@/components/error-boundary";
-import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { useClientManagement, type ClientStatus } from "@/hooks/use-clients";
 import { cn } from "@/lib/utils";
 import { createFileRoute } from "@tanstack/react-router";
