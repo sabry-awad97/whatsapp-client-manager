@@ -1,10 +1,13 @@
+import {
+  DataFetchError,
+  ErrorBoundary,
+  NetworkError,
+} from "@/components/error-boundary";
 import type { Metric } from "@/components/live-metrics";
 import { DashboardSkeleton } from "@/components/loading-skeleton";
 import { StatsOverview, type Stat } from "@/components/stats-overview";
 import type { ClientStatusItem } from "@/components/status-monitor";
 import { TooltipIconButton } from "@/components/tooltip-icon-button";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { generateChartData } from "@/domain/mocks";
 import { useActivities } from "@/hooks/use-activities";
@@ -14,7 +17,6 @@ import { trpc } from "@/utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  AlertCircle,
   CheckCircle2,
   Phone,
   RefreshCw,
@@ -72,27 +74,34 @@ const MonitorSkeleton = () => (
 );
 
 export const Route = createFileRoute("/")({
-  component: HomeComponent,
+  component: () => (
+    <ErrorBoundary>
+      <HomeComponent />
+    </ErrorBoundary>
+  ),
 });
 
 function HomeComponent() {
-  // Fetch data using TanStack Query hooks
+  // Fetch data using TanStack Query hooks with refetch capabilities
   const {
     data: clients,
     isLoading: isLoadingClients,
     isError: isErrorClients,
+    refetch: refetchClients,
   } = useClients();
 
   const {
     data: activities,
     isLoading: isLoadingActivities,
     isError: isErrorActivities,
+    refetch: refetchActivities,
   } = useActivities();
 
   const {
     data: metrics,
     isLoading: isLoadingMetrics,
     isError: isErrorMetrics,
+    refetch: refetchMetrics,
   } = useMetrics();
 
   // ============================================================================
@@ -158,13 +167,6 @@ function HomeComponent() {
       deliveryRate,
       clients,
     ]
-  );
-
-  const { data, isLoading, isError, refetch } = useQuery(
-    trpc.healthCheck.queryOptions(undefined, {
-      refetchInterval: 30000,
-      retry: false,
-    })
   );
 
   // Memoize live metrics - only recalculate when dependencies change
@@ -236,42 +238,33 @@ function HomeComponent() {
     console.log("Client clicked:", client);
   }, []);
 
-  // Show skeleton while fetching initial data
-  if (
-    isLoading ||
+  const {
+    data: healthData,
+    isLoading: isLoadingHealth,
+    isError: isErrorHealth,
+    refetch: refetchHealth,
+  } = useQuery(
+    trpc.healthCheck.queryOptions(undefined, {
+      refetchInterval: 30000,
+      retry: false,
+    })
+  );
+
+  // Determine overall loading state
+  const isInitialLoading =
+    isLoadingHealth ||
     isLoadingClients ||
     isLoadingActivities ||
-    isLoadingMetrics
-  ) {
+    isLoadingMetrics;
+
+  // Show skeleton only on initial load (when no data exists yet)
+  if (isInitialLoading && !clients && !activities && !metrics) {
     return <DashboardSkeleton />;
   }
 
-  if (isError) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Card className="w-96">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              Connection Error
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Unable to connect to the server. Please check your connection.
-            </p>
-            <Button onClick={() => refetch()} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return null;
+  // Handle server connection error only if no data available
+  if (isErrorHealth && !healthData) {
+    return <NetworkError onRetry={() => refetchHealth()} />;
   }
 
   return (
@@ -291,7 +284,12 @@ function HomeComponent() {
             variant="ghost"
             size="sm"
             className="h-7 px-2"
-            onClick={() => refetch()}
+            onClick={() => {
+              refetchHealth();
+              refetchClients();
+              refetchActivities();
+              refetchMetrics();
+            }}
           >
             <RefreshCw className="h-3 w-3 mr-1" />
             <span className="sr-only">Refresh</span>
@@ -313,7 +311,14 @@ function HomeComponent() {
               </p>
             </div>
           </div>
-          <StatsOverview stats={stats} columns={4} />
+          {isErrorMetrics ? (
+            <DataFetchError
+              resource="metrics"
+              onRetry={() => refetchMetrics()}
+            />
+          ) : (
+            <StatsOverview stats={stats} columns={4} />
+          )}
         </section>
 
         {/* Middle Section: Live Metrics */}
@@ -344,23 +349,44 @@ function HomeComponent() {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             {/* Left Column: Chart and Status */}
             <div className="xl:col-span-2 space-y-4">
-              <Suspense fallback={<ChartSkeleton />}>
-                <MessageActivityChart
-                  totalSent={totalSent}
-                  totalDelivered={totalDelivered}
+              {isErrorMetrics ? (
+                <DataFetchError
+                  resource="chart data"
+                  onRetry={() => refetchMetrics()}
                 />
-              </Suspense>
-              <Suspense fallback={<MonitorSkeleton />}>
-                <StatusMonitor
-                  clients={clientStatusItems}
-                  onClientClick={handleClientClick}
+              ) : (
+                <Suspense fallback={<ChartSkeleton />}>
+                  <MessageActivityChart
+                    totalSent={totalSent}
+                    totalDelivered={totalDelivered}
+                  />
+                </Suspense>
+              )}
+              {isErrorClients ? (
+                <DataFetchError
+                  resource="clients"
+                  onRetry={() => refetchClients()}
                 />
-              </Suspense>
+              ) : (
+                <Suspense fallback={<MonitorSkeleton />}>
+                  <StatusMonitor
+                    clients={clientStatusItems}
+                    onClientClick={handleClientClick}
+                  />
+                </Suspense>
+              )}
             </div>
             {/* Right Column: Activity Feed */}
-            <Suspense fallback={<MonitorSkeleton />}>
-              <ActivityFeed activities={activities || []} />
-            </Suspense>
+            {isErrorActivities ? (
+              <DataFetchError
+                resource="activities"
+                onRetry={() => refetchActivities()}
+              />
+            ) : (
+              <Suspense fallback={<MonitorSkeleton />}>
+                <ActivityFeed activities={activities || []} />
+              </Suspense>
+            )}
           </div>
         </section>
       </div>
