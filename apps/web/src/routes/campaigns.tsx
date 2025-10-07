@@ -27,7 +27,10 @@ import { Separator } from "@/components/ui/separator";
 import { DataFetchError, ErrorBoundary } from "@/components/error-boundary";
 import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { useClients } from "@/hooks/use-clients";
-import { useCampaignRealtime } from "@/hooks/use-campaigns";
+import {
+  useCampaignManagement,
+  useCampaignRealtime,
+} from "@/hooks/use-campaigns";
 import {
   CSVUploadDialog,
   ScheduleDialog,
@@ -42,9 +45,6 @@ import {
   type BulkCampaign,
   type CampaignStatus,
   type MessageTemplate,
-  type Recipient,
-  getCampaigns,
-  getTemplates,
 } from "@/domain/mocks";
 import { cn } from "@/lib/utils";
 import { createFileRoute } from "@tanstack/react-router";
@@ -113,9 +113,17 @@ interface TemplateFormData {
 // ============================================================================
 
 function CampaignsPage() {
-  // State - Initialize with centralized mock data
-  const [campaigns, setCampaigns] = useState<BulkCampaign[]>(getCampaigns());
-  const [templates] = useState<MessageTemplate[]>(getTemplates());
+  // Use campaign management hook
+  const {
+    campaigns,
+    templates,
+    isLoading,
+    startCampaign,
+    pauseCampaign,
+    stopCampaign,
+    deleteCampaign,
+    createCampaign,
+  } = useCampaignManagement();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
@@ -139,23 +147,10 @@ function CampaignsPage() {
   // Data fetching
   const { data: clients } = useClients();
 
-  // Real-time updates for running campaigns
+  // Real-time updates for running campaigns (optional - for live progress)
   const realtimeProgress = useCampaignRealtime(
-    campaigns.find((c) => c.status === "running")?.id || null,
+    campaigns.find((c: BulkCampaign) => c.status === "running")?.id || null,
   );
-
-  // Update campaign progress from real-time data
-  useEffect(() => {
-    if (realtimeProgress) {
-      setCampaigns((prev) =>
-        prev.map((c) =>
-          c.status === "running"
-            ? { ...c, progress: { ...c.progress, ...realtimeProgress } }
-            : c,
-        ),
-      );
-    }
-  }, [realtimeProgress]);
 
   // Filtered campaigns
   const filteredCampaigns = useMemo(() => {
@@ -213,46 +208,48 @@ function CampaignsPage() {
   const handleCreateCampaign = useCallback(
     async (data: CampaignFormData) => {
       try {
-        const template = templates.find((t) => t.id === data.templateId);
+        const template = templates.find(
+          (t: MessageTemplate) => t.id === data.templateId,
+        );
         if (!template) throw new Error("Template not found");
 
-        const newCampaign: BulkCampaign = {
-          id: `campaign-${Date.now()}`,
-          name: data.name,
-          description: data.description,
-          clientId: data.clientId,
-          template,
-          recipients: [],
-          status: data.scheduledAt ? "scheduled" : "draft",
-          progress: {
-            total: 0,
-            sent: 0,
-            delivered: 0,
-            read: 0,
-            failed: 0,
-            pending: 0,
+        // Use hook mutation to create campaign
+        createCampaign(
+          {
+            name: data.name,
+            description: data.description,
+            templateId: data.templateId,
+            clientId: data.clientId,
+            recipients: csvRecipients,
+            scheduledAt: data.scheduledAt,
           },
-          createdAt: new Date(),
-          scheduledAt: data.scheduledAt,
-        };
-
-        setCampaigns((prev) => [newCampaign, ...prev]);
-        toast.success("Campaign created", {
-          description: `${data.name} has been created successfully.`,
-        });
-        setIsCreateDialogOpen(false);
+          {
+            onSuccess: () => {
+              toast.success("Campaign created", {
+                description: `${data.name} has been created successfully.`,
+              });
+              setIsCreateDialogOpen(false);
+              setCSVRecipients([]); // Clear uploaded recipients
+            },
+            onError: (error) => {
+              toast.error("Failed to create campaign", {
+                description: error.message || "Please try again later.",
+              });
+            },
+          },
+        );
       } catch (error) {
         toast.error("Failed to create campaign", {
           description: "Please try again later.",
         });
       }
     },
-    [templates],
+    [templates, createCampaign, csvRecipients],
   );
 
   const handleStartCampaign = useCallback(
     (campaignId: string) => {
-      const campaign = campaigns.find((c) => c.id === campaignId);
+      const campaign = campaigns.find((c: BulkCampaign) => c.id === campaignId);
       if (!campaign) return;
 
       // Validate before starting
@@ -263,62 +260,43 @@ function CampaignsPage() {
         return;
       }
 
-      // Update campaign state
-      setCampaigns((prev) =>
-        prev.map((c) =>
-          c.id === campaignId
-            ? {
-                ...c,
-                status: "running" as CampaignStatus,
-                startedAt: c.startedAt || new Date(), // Keep original start time if resuming
-              }
-            : c,
-        ),
-      );
-
-      // Show appropriate message
-      const isResuming = campaign.status === "paused";
-      toast.success(isResuming ? "Campaign resumed" : "Campaign started", {
-        description: isResuming
-          ? `Continuing with ${campaign.progress.pending} pending messages`
-          : `Sending messages to ${campaign.progress.total} recipients`,
-        duration: 5000,
+      // Use hook mutation
+      startCampaign(campaignId, {
+        onSuccess: () => {
+          const isResuming = campaign.status === "paused";
+          toast.success(isResuming ? "Campaign resumed" : "Campaign started", {
+            description: isResuming
+              ? `Continuing with ${campaign.progress.pending} pending messages`
+              : `Sending messages to ${campaign.progress.total} recipients`,
+            duration: 5000,
+          });
+        },
       });
-
-      // TODO: Backend integration
-      // await fetch(`/api/campaigns/${campaignId}/start`, { method: 'POST' });
     },
-    [campaigns],
+    [campaigns, startCampaign],
   );
 
   const handlePauseCampaign = useCallback(
     (campaignId: string) => {
-      const campaign = campaigns.find((c) => c.id === campaignId);
+      const campaign = campaigns.find((c: BulkCampaign) => c.id === campaignId);
       if (!campaign) return;
 
-      // Update campaign state
-      setCampaigns((prev) =>
-        prev.map((c) =>
-          c.id === campaignId
-            ? { ...c, status: "paused" as CampaignStatus }
-            : c,
-        ),
-      );
-
-      toast.success("Campaign paused", {
-        description: `${campaign.progress.sent} messages sent, ${campaign.progress.pending} pending`,
-        duration: 5000,
+      // Use hook mutation
+      pauseCampaign(campaignId, {
+        onSuccess: () => {
+          toast.success("Campaign paused", {
+            description: `${campaign.progress.sent} messages sent, ${campaign.progress.pending} pending`,
+            duration: 5000,
+          });
+        },
       });
-
-      // TODO: Backend integration
-      // await fetch(`/api/campaigns/${campaignId}/pause`, { method: 'POST' });
     },
-    [campaigns],
+    [campaigns, pauseCampaign],
   );
 
   const handleStopCampaign = useCallback(
     (campaignId: string) => {
-      const campaign = campaigns.find((c) => c.id === campaignId);
+      const campaign = campaigns.find((c: BulkCampaign) => c.id === campaignId);
       if (!campaign) return;
 
       // Confirm before stopping
@@ -331,34 +309,29 @@ function CampaignsPage() {
 
       if (!confirmed) return;
 
-      // Update campaign state
-      setCampaigns((prev) =>
-        prev.map((c) =>
-          c.id === campaignId
-            ? {
-                ...c,
-                status: "completed" as CampaignStatus,
-                completedAt: new Date(),
-              }
-            : c,
-        ),
-      );
-
-      toast.success("Campaign stopped", {
-        description: `Final stats: ${campaign.progress.sent} sent, ${campaign.progress.delivered} delivered`,
-        duration: 5000,
+      // Use hook mutation
+      stopCampaign(campaignId, {
+        onSuccess: () => {
+          toast.success("Campaign stopped", {
+            description: `Final stats: ${campaign.progress.sent} sent, ${campaign.progress.delivered} delivered`,
+            duration: 5000,
+          });
+        },
       });
-
-      // TODO: Backend integration
-      // await fetch(`/api/campaigns/${campaignId}/stop`, { method: 'POST' });
     },
-    [campaigns],
+    [campaigns, stopCampaign],
   );
 
-  const handleDeleteCampaign = useCallback((campaignId: string) => {
-    setCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
-    toast.success("Campaign deleted");
-  }, []);
+  const handleDeleteCampaign = useCallback(
+    (campaignId: string) => {
+      deleteCampaign(campaignId, {
+        onSuccess: () => {
+          toast.success("Campaign deleted");
+        },
+      });
+    },
+    [deleteCampaign],
+  );
 
   const handleViewDetails = useCallback((campaign: BulkCampaign) => {
     setSelectedCampaign(campaign);
@@ -567,7 +540,21 @@ function CampaignsPage() {
 
       {/* Campaign List */}
       <div className="p-4">
-        {filteredCampaigns.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-4 w-64 mt-2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-24 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : filteredCampaigns.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Target className="h-16 w-16 text-muted-foreground/50 mb-4" />
