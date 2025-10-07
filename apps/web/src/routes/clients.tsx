@@ -22,7 +22,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useClientManagement, type ClientStatus } from "@/hooks/use-clients";
+import {
+  useClientManagement,
+  useCreateClient,
+  useUpdateClient,
+  useUpdateClientStatus,
+  useDeleteClient,
+  type ClientStatus,
+  type CreateClientInput,
+  type UpdateClientInput,
+} from "@/db/collections/clients.collection";
 import { cn } from "@/lib/utils";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -159,38 +168,22 @@ function ClientsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
 
-  // Data fetching
+  // Data fetching with filters
   const {
     clients,
     isLoading,
     isError,
-    refetch,
+    status,
     createClient,
-    isCreating,
     updateClientStatus,
-    isUpdatingStatus,
     deleteClient,
-    isDeleting,
-  } = useClientManagement();
+  } = useClientManagement({
+    search: searchQuery,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+  });
 
-  // Filtered and sorted clients
+  // Sort clients (filtering is done by the hook)
   const filteredClients = useMemo(() => {
-    let filtered = clients;
-
-    // Apply status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((c) => c.status === statusFilter);
-    }
-
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (c) =>
-          c.name.toLowerCase().includes(query) || c.phoneNumber.includes(query),
-      );
-    }
-
     // Sort by status priority, then by name
     const statusPriority: Record<ClientStatus, number> = {
       connected: 1,
@@ -200,12 +193,12 @@ function ClientsPage() {
       disconnected: 5,
     };
 
-    return filtered.sort((a, b) => {
+    return [...clients].sort((a, b) => {
       const priorityDiff = statusPriority[a.status] - statusPriority[b.status];
       if (priorityDiff !== 0) return priorityDiff;
       return a.name.localeCompare(b.name);
     });
-  }, [clients, statusFilter, searchQuery]);
+  }, [clients]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -361,7 +354,10 @@ function ClientsPage() {
   if (isError) {
     return (
       <div className="p-4">
-        <DataFetchError resource="clients" onRetry={() => refetch()} />
+        <DataFetchError
+          resource="clients"
+          onRetry={() => window.location.reload()}
+        />
       </div>
     );
   }
@@ -372,25 +368,51 @@ function ClientsPage() {
       <div className="border-b bg-gradient-to-r from-background to-muted/20">
         <div className="flex items-center justify-between p-4">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight">
-              WhatsApp Clients
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">
+                WhatsApp Clients
+              </h1>
+              {/* Live Status Badge */}
+              <div
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
+                  status === "ready" &&
+                    "bg-green-600/10 text-green-600 dark:text-green-400",
+                  status === "loading" &&
+                    "bg-blue-600/10 text-blue-600 dark:text-blue-400",
+                  status === "initialCommit" &&
+                    "bg-yellow-600/10 text-yellow-600 dark:text-yellow-400",
+                  status === "idle" &&
+                    "bg-gray-600/10 text-gray-600 dark:text-gray-400",
+                  status === "error" &&
+                    "bg-red-600/10 text-red-600 dark:text-red-400",
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    status === "ready" && "bg-green-600 dark:bg-green-400",
+                    status === "loading" &&
+                      "bg-blue-600 dark:bg-blue-400 animate-pulse",
+                    status === "initialCommit" &&
+                      "bg-yellow-600 dark:bg-yellow-400 animate-pulse",
+                    status === "idle" && "bg-gray-600 dark:bg-gray-400",
+                    status === "error" &&
+                      "bg-red-600 dark:bg-red-400 animate-pulse",
+                  )}
+                />
+                {status === "ready" && "Live"}
+                {status === "loading" && "Syncing..."}
+                {status === "initialCommit" && "Initializing..."}
+                {status === "idle" && "Idle"}
+                {status === "error" && "Error"}
+              </div>
+            </div>
             <p className="text-sm text-muted-foreground">
               Manage multiple WhatsApp accounts and send bulk messages
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <TooltipIconButton
-              tooltip="Refresh clients"
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              disabled={isLoading}
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", isLoading && "animate-spin")}
-              />
-            </TooltipIconButton>
             <Button
               size="sm"
               onClick={() => setIsAddDialogOpen(true)}
@@ -557,7 +579,7 @@ function ClientsPage() {
                     setClientToDelete(client.id);
                     setIsDeleteDialogOpen(true);
                   }}
-                  isUpdating={isUpdatingStatus}
+                  isUpdating={false}
                 />
               ))}
             </div>
@@ -570,7 +592,7 @@ function ClientsPage() {
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onSubmit={handleAddClient}
-        isLoading={isCreating}
+        isLoading={false}
       />
 
       <BulkMessageDialog
@@ -589,7 +611,7 @@ function ClientsPage() {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={() => clientToDelete && handleDeleteClient(clientToDelete)}
-        isLoading={isDeleting}
+        isLoading={false}
         clientName={
           clients.find((c) => c.id === clientToDelete)?.name || "this client"
         }
@@ -687,12 +709,12 @@ function ClientCard({
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {client.status === "connected" ? (
-                <DropdownMenuItem onClick={onDisconnect} disabled={isUpdating}>
+                <DropdownMenuItem onClick={onDisconnect}>
                   <XCircle className="h-4 w-4 mr-2" />
                   Disconnect
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={onConnect} disabled={isUpdating}>
+                <DropdownMenuItem onClick={onConnect}>
                   <Zap className="h-4 w-4 mr-2" />
                   Connect
                 </DropdownMenuItem>
